@@ -1,0 +1,128 @@
+{
+  "weights": {
+    "market_demand": 45,
+    "market_quality": 30,
+    "competitive_opportunity": 25
+  },
+  "market_demand": {
+    "search_volume_pct": 0.70,
+    "population_pct": 0.30,
+    "population_cap": 500000
+  },
+  "market_quality": {
+    "owner_occupied_pct": 0.55,
+    "income_pct": 0.30,
+    "year_built_pct": 0.15,
+    "owner_occ_floor": 0.30,
+    "owner_occ_ceiling": 0.90,
+    "income_floor": 40000,
+    "income_ceiling": 120000,
+    "year_built_baseline": 2025,
+    "year_built_oldest": 1940
+  },
+  "competitive_opportunity": {
+    "competition_index_pct": 0.50,
+    "same_brand_distance_pct": 0.30,
+    "sister_overlap_pct": 0.20,
+    "sister_brand_radius_mi": 50
+  },
+  "portfolio_gap": {
+    "max_points": 25,
+    "density_thresholds": {
+      "urban": 10,
+      "suburban": 25,
+      "rural": 40
+    }
+  },
+  "crm_badges": {
+    "proven_threshold": 10,
+    "signal_threshold": 1
+  },
+  "brand_keyword_weights": {
+    "SB": {
+      "basement_waterproofing": 1.0,
+      "foundation_repair": 0.2,
+      "crawl_space": 0.2
+    },
+    "58-MA": {
+      "foundation_repair": 1.0,
+      "basement_waterproofing": 0.2,
+      "crawl_space": 0.2
+    },
+    "LT": {
+      "foundation_repair": 1.0,
+      "basement_waterproofing": 0.2,
+      "crawl_space": 0.2
+    },
+    "SD": {
+      "basement_waterproofing": 1.0,
+      "foundation_repair": 1.0,
+      "crawl_space": 1.0
+    },
+    "58-GA": {
+      "foundation_repair": 1.0,
+      "basement_waterproofing": 0.2,
+      "crawl_space": 0.2
+    },
+    "58-TN": {
+      "foundation_repair": 1.0,
+      "basement_waterproofing": 0.2,
+      "crawl_space": 0.2
+    },
+    "58-NC": {
+      "foundation_repair": 1.0,
+      "basement_waterproofing": 0.2,
+      "crawl_space": 0.2
+    },
+    "KF": {
+      "foundation_repair": 1.0,
+      "basement_waterproofing": 1.0,
+      "crawl_space": 0.2
+    },
+    "58-SC": {
+      "foundation_repair": 1.0,
+      "basement_waterproofing": 0.2,
+      "crawl_space": 0.2
+    },
+    "DC": {
+      "basement_waterproofing": 1.0,
+      "foundation_repair": 1.0,
+      "crawl_space": 1.0
+    },
+    "AW": {
+      "foundation_repair": 1.0,
+      "basement_waterproofing": 0.2,
+      "crawl_space": 0.2
+    },
+    "FB-FB": {
+      "basement_waterproofing": 1.0,
+      "foundation_repair": 0.2,
+      "crawl_space": 0.2
+    },
+    "AC": {
+      "basement_waterproofing": 1.0,
+      "foundation_repair": 0.2,
+      "crawl_space": 0.2
+    },
+    "KC": {
+      "basement_waterproofing": 1.0,
+      "foundation_repair": 1.0,
+      "crawl_space": 0.2
+    },
+    "CB": {
+      "crawl_space": 1.0,
+      "basement_waterproofing": 0.2,
+      "foundation_repair": 0.2
+    },
+    "ES": {
+      "foundation_repair": 1.0,
+      "basement_waterproofing": 0.2,
+      "crawl_space": 0.2
+    },
+    "CF": {
+      "foundation_repair": 1.0,
+      "basement_waterproofing": 0.2,
+      "crawl_space": 0.2
+    }
+  }
+}
