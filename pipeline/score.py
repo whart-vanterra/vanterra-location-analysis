@@ -196,6 +196,90 @@ def calc_composite_score(
 
 
 # ---------------------------------------------------------------------------
+# Sensitivity analysis
+# ---------------------------------------------------------------------------
+
+def _rank_scores(scores: list[float]) -> list[int]:
+    """Return 1-based ranks (higher score = rank 1)."""
+    indexed = sorted(enumerate(scores), key=lambda x: x[1], reverse=True)
+    ranks = [0] * len(scores)
+    for rank, (idx, _) in enumerate(indexed, start=1):
+        ranks[idx] = rank
+    return ranks
+
+
+def _perturb_weights(config: dict, target_weight: str, delta: int) -> dict:
+    """Return a NEW config with target weight adjusted by delta.
+
+    The other two top-level weights absorb the change proportionally
+    so the sum remains 100.
+    """
+    import copy
+    new_config = copy.deepcopy(config)
+    weights = new_config["weights"]
+    weight_names = ["market_demand", "market_quality", "competitive_opportunity"]
+
+    original = weights[target_weight]
+    new_val = max(0, original + delta)
+    actual_delta = new_val - original
+
+    others = [w for w in weight_names if w != target_weight]
+    other_sum = sum(weights[w] for w in others)
+
+    if other_sum > 0:
+        for w in others:
+            proportion = weights[w] / other_sum
+            weights[w] = max(0, weights[w] - actual_delta * proportion)
+    weights[target_weight] = new_val
+
+    return new_config
+
+
+def calc_sensitivity_flags(cities: list[dict], config: dict) -> list[bool]:
+    """Check rank stability under weight perturbations.
+
+    For each of the 3 top-level weights, perturb by +5 and -5,
+    redistribute proportionally, rescore, and re-rank.
+    A city whose rank shifts by 5+ positions in any perturbation
+    is flagged as sensitive.
+    """
+    if not cities:
+        return []
+
+    max_vol = max(c["brand_vol"] for c in cities) or 1
+    max_pop = max(c["population"] for c in cities) or 1
+
+    def _score_all(cfg: dict) -> list[float]:
+        return [
+            calc_composite_score(
+                c["brand_vol"], max_vol, c["population"], max_pop,
+                c["owner_pct"], c["income"], c["year_built"],
+                c["comp_index"], c["same_brand_dist"], c["sister_brands"],
+                cfg,
+            )
+            for c in cities
+        ]
+
+    baseline_scores = _score_all(config)
+    baseline_ranks = _rank_scores(baseline_scores)
+
+    weight_names = ["market_demand", "market_quality", "competitive_opportunity"]
+    sensitive = [False] * len(cities)
+
+    for target_weight in weight_names:
+        for delta in [5, -5]:
+            perturbed_config = _perturb_weights(config, target_weight, delta)
+            perturbed_scores = _score_all(perturbed_config)
+            perturbed_ranks = _rank_scores(perturbed_scores)
+
+            for i in range(len(cities)):
+                if abs(baseline_ranks[i] - perturbed_ranks[i]) >= 5:
+                    sensitive[i] = True
+
+    return sensitive
+
+
+# ---------------------------------------------------------------------------
 # Distance helpers
 # ---------------------------------------------------------------------------
 
@@ -532,6 +616,7 @@ def main() -> None:
         brand_existing = brand_locations.get(brand_id, [])
 
         city_scores = []
+        sensitivity_inputs = []
         for i, r in enumerate(brand_rows):
             kw = r["keyword_weights"] or {}
             brand_vol = brand_vols[i]
@@ -572,6 +657,17 @@ def main() -> None:
                 comp_index, same_dist, sisters, config,
             )
 
+            sensitivity_inputs.append({
+                "brand_vol": brand_vol,
+                "population": r["population"],
+                "owner_pct": r["owner_occupied_pct"],
+                "income": r["median_household_income"],
+                "year_built": r["median_year_built"],
+                "comp_index": comp_index,
+                "same_brand_dist": same_dist,
+                "sister_brands": sisters,
+            })
+
             city_scores.append({
                 "brand_id": brand_id,
                 "city_key": r["city_key"],
@@ -611,9 +707,19 @@ def main() -> None:
                 "config_hash": config_hash,
             })
 
+        flags = calc_sensitivity_flags(sensitivity_inputs, config)
+        sensitive_count = 0
+        for cs, flag in zip(city_scores, flags):
+            cs["sensitivity_flag"] = flag
+            if flag:
+                sensitive_count += 1
+
         city_scores.sort(key=lambda x: x["composite_score"], reverse=True)
         for rank, row in enumerate(city_scores, start=1):
             row["rank"] = rank
+
+        if sensitive_count:
+            print(f"  {brand_id}: {sensitive_count} sensitive cities")
 
         scored_rows.extend(city_scores)
 

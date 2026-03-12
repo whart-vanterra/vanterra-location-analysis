@@ -7,6 +7,7 @@ from pipeline.score import (
     calc_portfolio_gap,
     calc_crm_badge,
     calc_composite_score,
+    calc_sensitivity_flags,
     haversine,
     calc_same_brand_distance,
     count_sister_brands,
@@ -229,3 +230,50 @@ class TestCrossBrandDistance:
         ]
         dist = calc_cross_brand_distance(39.9526, -75.1652, offices)
         assert 75 < dist < 85
+
+
+class TestSensitivity:
+    def test_perturbation_detects_fragile_rank(self):
+        """Cities with lopsided score profiles shift rank under weight perturbation.
+
+        Three groups of 10 cities: demand-heavy (A), quality-heavy (B), balanced (C).
+        When weights shift, the demand-heavy cities swap ranks with quality-heavy ones.
+        """
+        cities = []
+        # Group A: high demand, low quality
+        for i in range(10):
+            cities.append({
+                'brand_vol': 800 + i * 20, 'population': 400000 + i * 5000,
+                'owner_pct': 0.35 + i * 0.01, 'income': 45000 + i * 500,
+                'year_built': 2000 - i, 'comp_index': 55 + i,
+                'same_brand_dist': 35 + i, 'sister_brands': 2,
+            })
+        # Group B: low demand, high quality
+        for i in range(10):
+            cities.append({
+                'brand_vol': 200 + i * 10, 'population': 100000 + i * 5000,
+                'owner_pct': 0.80 + i * 0.005, 'income': 95000 + i * 1000,
+                'year_built': 1950 + i, 'comp_index': 25 + i,
+                'same_brand_dist': 45 + i, 'sister_brands': 0,
+            })
+        # Group C: balanced
+        for i in range(10):
+            cities.append({
+                'brand_vol': 500 + i * 15, 'population': 250000 + i * 5000,
+                'owner_pct': 0.60 + i * 0.01, 'income': 70000 + i * 1000,
+                'year_built': 1970 + i, 'comp_index': 35 + i,
+                'same_brand_dist': 40 + i, 'sister_brands': 1,
+            })
+        flags = calc_sensitivity_flags(cities, CONFIG)
+        assert any(flags)
+
+    def test_clear_leader_not_sensitive(self):
+        """A city far ahead of others should not be flagged."""
+        cities = [
+            {'brand_vol': 1000, 'population': 500000, 'owner_pct': 0.80, 'income': 100000,
+             'year_built': 1950, 'comp_index': 10, 'same_brand_dist': 50, 'sister_brands': 0},
+            {'brand_vol': 100, 'population': 50000, 'owner_pct': 0.50, 'income': 55000,
+             'year_built': 1990, 'comp_index': 70, 'same_brand_dist': 20, 'sister_brands': 3},
+        ]
+        flags = calc_sensitivity_flags(cities, CONFIG)
+        assert not flags[0]  # Clear leader should not be sensitive
