@@ -9,6 +9,7 @@ import BrandCard from '@/components/BrandCard';
 import RecommendationTable from '@/components/RecommendationTable';
 import WeightSliders from '@/components/WeightSliders';
 import PortfolioGapToggle from '@/components/PortfolioGapToggle';
+import OfficeToggle from '@/components/OfficeToggle';
 
 import recommendationsData from '@/data/recommendations.json';
 import brandsData from '@/data/brands.json';
@@ -22,11 +23,34 @@ export default function Home() {
   const [selectedBrandId, setSelectedBrandId] = useState<string | null>(null);
   const [currentConfig, setCurrentConfig] = useState<ScoringConfig>(defaultConfig);
   const [portfolioGapEnabled, setPortfolioGapEnabled] = useState(false);
+  const [activeOffices, setActiveOffices] = useState<Set<string>>(new Set());
 
   const selectedBrand = useMemo(
     () => brands.find((b) => b.brand_id === selectedBrandId) ?? null,
     [selectedBrandId]
   );
+
+  function handleBrandSelect(brandId: string | null) {
+    setSelectedBrandId(brandId);
+    if (brandId) {
+      const brand = brands.find((b) => b.brand_id === brandId);
+      setActiveOffices(new Set(brand?.existing_locations.map((l) => l.city_key) ?? []));
+    } else {
+      setActiveOffices(new Set());
+    }
+  }
+
+  function handleOfficeToggle(cityKey: string) {
+    setActiveOffices((prev) => {
+      const next = new Set(prev);
+      if (next.has(cityKey)) {
+        next.delete(cityKey);
+      } else {
+        next.add(cityKey);
+      }
+      return next;
+    });
+  }
 
   const selectedRecommendations = useMemo(() => {
     if (!selectedBrandId) return [];
@@ -51,13 +75,20 @@ export default function Home() {
         <BrandSelector
           brands={brands}
           selectedBrandId={selectedBrandId}
-          onSelect={setSelectedBrandId}
+          onSelect={handleBrandSelect}
         />
       </div>
 
       {selectedBrand && (
         <div>
           <BrandCard brand={selectedBrand} />
+          <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm mb-4">
+            <OfficeToggle
+              locations={selectedBrand.existing_locations}
+              activeLocations={activeOffices}
+              onToggle={handleOfficeToggle}
+            />
+          </div>
           <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-4">
             <h3 className="text-lg font-semibold text-gray-900 mb-3">
               Recommended Markets ({selectedRecommendations.length})
