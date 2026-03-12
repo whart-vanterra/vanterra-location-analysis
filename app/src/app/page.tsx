@@ -11,6 +11,7 @@ import PortfolioGapToggle from '@/components/PortfolioGapToggle';
 import OfficeToggle from '@/components/OfficeToggle';
 import ExpansionPlanner from '@/components/ExpansionPlanner';
 import BrandPortfolioDashboard from '@/components/BrandPortfolioDashboard';
+import MethodologyPanel from '@/components/MethodologyPanel';
 
 import recommendationsData from '@/data/recommendations.json';
 import brandsData from '@/data/brands.json';
@@ -74,6 +75,10 @@ export default function Home() {
 
   return (
     <div>
+      <div className="mb-4">
+        <MethodologyPanel />
+      </div>
+
       <div className="mb-4">
         <WeightSliders config={currentConfig} onChange={setCurrentConfig} />
       </div>
