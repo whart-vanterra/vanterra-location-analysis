@@ -1,12 +1,16 @@
 """Scoring engine for Location Intelligence v3.0.
 
-Pure functions — no I/O, no side effects. All thresholds and weights
-are read from the config dict passed to each function.
+Pure scoring functions (no I/O) plus pipeline orchestration for loading
+data from Supabase, scoring, and writing results.
 """
 
 from __future__ import annotations
+import hashlib
+import json
 import math
+from collections import defaultdict
 from math import sqrt
+from pathlib import Path
 
 
 def clamp(val: float, lo: float, hi: float) -> float:
@@ -269,3 +273,362 @@ def calc_cross_brand_distance(
         if d < best:
             best = d
     return best
+
+
+# ---------------------------------------------------------------------------
+# Data loading
+# ---------------------------------------------------------------------------
+
+BATCH_SIZE = 100
+CONFIG_PATH = Path(__file__).parent / "config.json"
+
+
+def _fetch_all(sb, table: str, select: str = "*") -> list[dict]:
+    """Fetch all rows from a Supabase table, paginating if needed."""
+    rows = []
+    page_size = 1000
+    offset = 0
+    while True:
+        resp = (
+            sb.table(table)
+            .select(select)
+            .range(offset, offset + page_size - 1)
+            .execute()
+        )
+        batch = resp.data or []
+        rows.extend(batch)
+        if len(batch) < page_size:
+            break
+        offset += page_size
+    return rows
+
+
+def _compute_state_medians(census_by_city: dict, cities: dict) -> dict:
+    """Compute median census values per state for fallback."""
+    state_vals = defaultdict(lambda: {"owner": [], "income": [], "year": []})
+    for city_key, cd in census_by_city.items():
+        city_info = cities.get(city_key)
+        if not city_info:
+            continue
+        state = city_info.get("state", "")
+        if cd.get("owner_occupied_pct") is not None:
+            state_vals[state]["owner"].append(cd["owner_occupied_pct"])
+        if cd.get("median_household_income") is not None:
+            state_vals[state]["income"].append(cd["median_household_income"])
+        if cd.get("median_year_built") is not None:
+            state_vals[state]["year"].append(cd["median_year_built"])
+
+    medians = {}
+    for state, vals in state_vals.items():
+        medians[state] = {
+            "owner_occupied_pct": _median(vals["owner"]),
+            "median_household_income": _median(vals["income"]),
+            "median_year_built": _median_int(vals["year"]),
+        }
+    return medians
+
+
+def _median(values: list) -> float | None:
+    if not values:
+        return None
+    s = sorted(values)
+    n = len(s)
+    if n % 2 == 1:
+        return s[n // 2]
+    return (s[n // 2 - 1] + s[n // 2]) / 2
+
+
+def _median_int(values: list) -> int | None:
+    m = _median(values)
+    return int(m) if m is not None else None
+
+
+def load_scoring_data(sb) -> list[dict]:
+    """Load all brand x city records from Supabase, joined in Python."""
+    mappings = _fetch_all(sb, "loc_brand_city_mappings")
+    cities_raw = _fetch_all(sb, "loc_cities")
+    sv_raw = _fetch_all(sb, "loc_search_volumes")
+    census_raw = _fetch_all(sb, "loc_census_demographics")
+    crm_raw = _fetch_all(sb, "loc_crm_data")
+    brands_raw = _fetch_all(sb, "loc_brands")
+
+    cities = {r["city_key"]: r for r in cities_raw}
+    sv = {r["city_key"]: r for r in sv_raw}
+    census = {r["city_key"]: r for r in census_raw}
+    crm = {(r["brand_id"], r["city_key"]): r for r in crm_raw}
+    brands = {r["brand_id"]: r for r in brands_raw}
+
+    state_medians = _compute_state_medians(census, cities)
+
+    rows = []
+    for m in mappings:
+        brand_id = m["brand_id"]
+        city_key = m["city_key"]
+
+        city = cities.get(city_key)
+        if not city:
+            continue
+
+        search = sv.get(city_key)
+        if not search:
+            continue  # Skip rows with no search volume data
+
+        brand = brands.get(brand_id)
+        if not brand:
+            continue
+
+        cd = census.get(city_key)
+        crm_row = crm.get((brand_id, city_key))
+
+        state = city.get("state", "")
+        sm = state_medians.get(state, {})
+
+        used_census_fallback = False
+        if cd:
+            owner_pct = cd.get("owner_occupied_pct")
+            income = cd.get("median_household_income")
+            year_built = cd.get("median_year_built")
+            # Fill individual nulls from state median
+            if owner_pct is None:
+                owner_pct = sm.get("owner_occupied_pct", 0.5)
+                used_census_fallback = True
+            if income is None:
+                income = sm.get("median_household_income", 60000)
+                used_census_fallback = True
+            if year_built is None:
+                year_built = sm.get("median_year_built", 1975)
+                used_census_fallback = True
+        else:
+            owner_pct = sm.get("owner_occupied_pct", 0.5)
+            income = sm.get("median_household_income", 60000)
+            year_built = sm.get("median_year_built", 1975)
+            used_census_fallback = True
+
+        brand_confidence = brand.get("confidence_tier", "SPECULATIVE")
+        if brand_confidence == "SPECULATIVE":
+            data_confidence = "SPECULATIVE"
+        elif used_census_fallback and brand_confidence in ("MODERATE", "LOW"):
+            data_confidence = "LOW"
+        elif used_census_fallback or brand_confidence == "MODERATE":
+            data_confidence = "MODERATE"
+        else:
+            data_confidence = "HIGH"
+
+        kw_raw = brand.get("keyword_weights")
+        keyword_weights = (
+            json.loads(kw_raw) if isinstance(kw_raw, str) and kw_raw else {}
+        )
+
+        el_raw = brand.get("existing_locations")
+        existing_locations = (
+            json.loads(el_raw) if isinstance(el_raw, str) and el_raw else []
+        )
+
+        rows.append({
+            "brand_id": brand_id,
+            "city_key": city_key,
+            "city": city.get("city"),
+            "state": state,
+            "lat": city.get("lat"),
+            "lng": city.get("lng"),
+            "population": city.get("population") or 0,
+            "foundation_vol": search.get("foundation_vol") or 0,
+            "basement_vol": search.get("basement_vol") or 0,
+            "crawlspace_vol": search.get("crawlspace_vol") or 0,
+            "concrete_vol": search.get("concrete_vol") or 0,
+            "avg_competition_index": search.get("avg_competition_index") or 0,
+            "owner_occupied_pct": owner_pct,
+            "median_household_income": income,
+            "median_year_built": year_built,
+            "leads": crm_row.get("leads", 0) if crm_row else 0,
+            "jobs": crm_row.get("jobs", 0) if crm_row else 0,
+            "revenue": crm_row.get("revenue", 0.0) if crm_row else 0.0,
+            "keyword_weights": keyword_weights,
+            "existing_locations": existing_locations,
+            "confidence_tier": brand_confidence,
+            "data_confidence": data_confidence,
+            "avg_density": m.get("avg_density") or 0,
+        })
+
+    return rows
+
+
+# ---------------------------------------------------------------------------
+# Pipeline orchestration
+# ---------------------------------------------------------------------------
+
+def _collect_brand_locations(data: list[dict]) -> dict[str, list[dict]]:
+    """Build {brand_id: [location dicts]} from existing_locations across rows."""
+    brand_locs: dict[str, list[dict]] = {}
+    for row in data:
+        bid = row["brand_id"]
+        if bid not in brand_locs:
+            brand_locs[bid] = row["existing_locations"]
+    return brand_locs
+
+
+def _collect_all_offices(brand_locations: dict[str, list[dict]]) -> list[dict]:
+    """Flatten all brand locations into a single list for cross-brand distance."""
+    offices = []
+    for locs in brand_locations.values():
+        offices.extend(locs)
+    return offices
+
+
+def _batch_upsert(sb, table: str, rows: list[dict]) -> int:
+    """Upsert rows in batches. Returns total count upserted."""
+    total = 0
+    for i in range(0, len(rows), BATCH_SIZE):
+        chunk = rows[i : i + BATCH_SIZE]
+        sb.table(table).upsert(chunk).execute()
+        total += len(chunk)
+    return total
+
+
+def main() -> None:
+    """Run the full scoring pipeline."""
+    from pipeline.utils import get_supabase
+
+    with open(CONFIG_PATH) as f:
+        config_text = f.read()
+    config = json.loads(config_text)
+    config_hash = hashlib.sha256(config_text.encode()).hexdigest()
+
+    sb = get_supabase()
+    print("Loading scoring data from Supabase...", flush=True)
+    data = load_scoring_data(sb)
+    print(f"  Loaded {len(data)} brand × city records")
+
+    if not data:
+        print("No data to score. Exiting.")
+        return
+
+    brand_locations = _collect_brand_locations(data)
+    all_offices = _collect_all_offices(brand_locations)
+    sister_radius = config["competitive_opportunity"]["sister_brand_radius_mi"]
+
+    by_brand: dict[str, list[dict]] = defaultdict(list)
+    for row in data:
+        by_brand[row["brand_id"]].append(row)
+
+    scored_rows = []
+    for brand_id, brand_rows in by_brand.items():
+        brand_vols = []
+        brand_pops = []
+        for r in brand_rows:
+            kw = r["keyword_weights"] or {}
+            bv = (
+                r["foundation_vol"] * kw.get("foundation_repair", 1.0)
+                + r["basement_vol"] * kw.get("basement_waterproofing", 1.0)
+                + r["crawlspace_vol"] * kw.get("crawl_space", 1.0)
+                + r["concrete_vol"] * kw.get("concrete_lifting", 1.0)
+            )
+            brand_vols.append(bv)
+            brand_pops.append(r["population"])
+
+        max_brand_vol = max(brand_vols) if brand_vols else 1
+        max_brand_pop = max(brand_pops) if brand_pops else 1
+
+        brand_existing = brand_locations.get(brand_id, [])
+
+        city_scores = []
+        for i, r in enumerate(brand_rows):
+            kw = r["keyword_weights"] or {}
+            brand_vol = brand_vols[i]
+
+            same_dist = calc_same_brand_distance(
+                r["lat"], r["lng"], brand_existing
+            )
+            sisters = count_sister_brands(
+                r["lat"], r["lng"], brand_locations, brand_id, sister_radius
+            )
+            cross_dist = calc_cross_brand_distance(
+                r["lat"], r["lng"], all_offices
+            )
+
+            comp_index = r["avg_competition_index"]
+            composite = calc_composite_score(
+                brand_vol, max_brand_vol,
+                r["population"], max_brand_pop,
+                r["owner_occupied_pct"], r["median_household_income"],
+                r["median_year_built"], comp_index,
+                same_dist, sisters, config,
+            )
+
+            density = r["avg_density"] or 0
+            portfolio_gap = calc_portfolio_gap(cross_dist, density, config)
+
+            crm_badge = calc_crm_badge(r["jobs"], config)
+
+            demand_score = calc_market_demand(
+                brand_vol, max_brand_vol,
+                r["population"], max_brand_pop, config,
+            )
+            quality_score = calc_market_quality(
+                r["owner_occupied_pct"], r["median_household_income"],
+                r["median_year_built"], config,
+            )
+            opportunity_score = calc_competitive_opportunity(
+                comp_index, same_dist, sisters, config,
+            )
+
+            city_scores.append({
+                "brand_id": brand_id,
+                "city_key": r["city_key"],
+                "composite_score": round(composite, 2),
+                "market_demand_score": round(demand_score, 2),
+                "market_quality_score": round(quality_score, 2),
+                "competitive_opportunity_score": round(opportunity_score, 2),
+                "portfolio_gap_score": round(portfolio_gap, 2),
+                "search_vol_total": (
+                    r["foundation_vol"] + r["basement_vol"]
+                    + r["crawlspace_vol"] + r["concrete_vol"]
+                ),
+                "search_vol_breakdown": json.dumps({
+                    "foundation": r["foundation_vol"],
+                    "basement": r["basement_vol"],
+                    "crawlspace": r["crawlspace_vol"],
+                    "concrete": r["concrete_vol"],
+                }),
+                "owner_occupied_pct": r["owner_occupied_pct"],
+                "median_household_income": int(r["median_household_income"]),
+                "median_year_built": int(r["median_year_built"]),
+                "competition_index": comp_index,
+                "same_brand_distance_mi": (
+                    round(same_dist, 1) if same_dist != float("inf") else None
+                ),
+                "sister_brands_nearby": sisters,
+                "cross_brand_distance_mi": (
+                    round(cross_dist, 1) if cross_dist != float("inf") else None
+                ),
+                "crm_badge": crm_badge,
+                "crm_leads": r["leads"],
+                "crm_jobs": r["jobs"],
+                "crm_revenue": r["revenue"],
+                "rank": 0,  # Set after sorting
+                "data_confidence": r["data_confidence"],
+                "sensitivity_flag": False,
+                "config_hash": config_hash,
+            })
+
+        city_scores.sort(key=lambda x: x["composite_score"], reverse=True)
+        for rank, row in enumerate(city_scores, start=1):
+            row["rank"] = rank
+
+        scored_rows.extend(city_scores)
+
+    print(f"Scored {len(scored_rows)} rows across {len(by_brand)} brands")
+
+    print("Truncating loc_scored_recommendations...", flush=True)
+    sb.table("loc_scored_recommendations").delete().neq(
+        "brand_id", "__nonexistent__"
+    ).execute()
+
+    print("Writing scored recommendations...", flush=True)
+    count = _batch_upsert(sb, "loc_scored_recommendations", scored_rows)
+    print(f"  Upserted {count} rows")
+    print("Done.")
+
+
+if __name__ == "__main__":
+    main()
