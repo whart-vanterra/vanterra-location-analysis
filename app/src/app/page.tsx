@@ -8,6 +8,7 @@ import BrandSelector from '@/components/BrandSelector';
 import BrandCard from '@/components/BrandCard';
 import RecommendationTable from '@/components/RecommendationTable';
 import WeightSliders from '@/components/WeightSliders';
+import PortfolioGapToggle from '@/components/PortfolioGapToggle';
 
 import recommendationsData from '@/data/recommendations.json';
 import brandsData from '@/data/brands.json';
@@ -37,6 +38,10 @@ export default function Home() {
     <div>
       <div className="mb-4">
         <WeightSliders config={currentConfig} onChange={setCurrentConfig} />
+      </div>
+
+      <div className="mb-4">
+        <PortfolioGapToggle enabled={portfolioGapEnabled} onToggle={setPortfolioGapEnabled} />
       </div>
 
       <div className="mb-6">
