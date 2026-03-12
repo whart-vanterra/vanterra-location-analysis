@@ -5,6 +5,7 @@ are read from the config dict passed to each function.
 """
 
 from __future__ import annotations
+import math
 from math import sqrt
 
 
@@ -188,3 +189,83 @@ def calc_composite_score(
     quality = calc_market_quality(owner_pct, income, year_built, config)
     opportunity = calc_competitive_opportunity(comp_index, same_brand_dist, sister_brands, config)
     return demand + quality + opportunity
+
+
+# ---------------------------------------------------------------------------
+# Distance helpers
+# ---------------------------------------------------------------------------
+
+def haversine(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
+    """Calculate distance in miles between two lat/lng points."""
+    R = 3959  # Earth radius in miles
+    dlat = math.radians(lat2 - lat1)
+    dlng = math.radians(lng2 - lng1)
+    a = (
+        math.sin(dlat / 2) ** 2
+        + math.cos(math.radians(lat1))
+        * math.cos(math.radians(lat2))
+        * math.sin(dlng / 2) ** 2
+    )
+    return R * 2 * math.asin(math.sqrt(a))
+
+
+def calc_same_brand_distance(
+    city_lat: float | None,
+    city_lng: float | None,
+    brand_locations: list[dict],
+) -> float:
+    """Haversine to nearest office of the same brand. Returns inf if none."""
+    if city_lat is None or city_lng is None or not brand_locations:
+        return float("inf")
+    best = float("inf")
+    for loc in brand_locations:
+        lat, lng = loc.get("lat"), loc.get("lng")
+        if lat is None or lng is None:
+            continue
+        d = haversine(city_lat, city_lng, lat, lng)
+        if d < best:
+            best = d
+    return best
+
+
+def count_sister_brands(
+    city_lat: float | None,
+    city_lng: float | None,
+    all_brand_locations: dict[str, list[dict]],
+    current_brand_id: str,
+    radius_mi: float,
+) -> int:
+    """Count distinct other brands with an office within radius."""
+    if city_lat is None or city_lng is None:
+        return 0
+    count = 0
+    for brand_id, locations in all_brand_locations.items():
+        if brand_id == current_brand_id:
+            continue
+        for loc in locations:
+            lat, lng = loc.get("lat"), loc.get("lng")
+            if lat is None or lng is None:
+                continue
+            if haversine(city_lat, city_lng, lat, lng) <= radius_mi:
+                count += 1
+                break  # Only count each brand once
+    return count
+
+
+def calc_cross_brand_distance(
+    city_lat: float | None,
+    city_lng: float | None,
+    all_office_locations: list[dict],
+) -> float:
+    """Haversine to nearest ANY Vanterra office. Returns inf if none."""
+    if city_lat is None or city_lng is None or not all_office_locations:
+        return float("inf")
+    best = float("inf")
+    for loc in all_office_locations:
+        lat, lng = loc.get("lat"), loc.get("lng")
+        if lat is None or lng is None:
+            continue
+        d = haversine(city_lat, city_lng, lat, lng)
+        if d < best:
+            best = d
+    return best

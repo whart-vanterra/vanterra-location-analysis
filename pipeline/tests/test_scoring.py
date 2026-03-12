@@ -7,6 +7,10 @@ from pipeline.score import (
     calc_portfolio_gap,
     calc_crm_badge,
     calc_composite_score,
+    haversine,
+    calc_same_brand_distance,
+    count_sister_brands,
+    calc_cross_brand_distance,
 )
 
 with open("pipeline/config.json") as f:
@@ -56,12 +60,17 @@ class TestMarketQuality:
         )
         assert score < 15
 
-    def test_floor_and_ceiling(self):
-        """Below 30% owner-occ should clamp to 0."""
-        score = calc_market_quality(
-            owner_pct=0.20, income=80000, year_built=1960, config=CONFIG
-        )
-        assert score < 15
+    def test_owner_occ_floor_clamps_to_zero(self):
+        """Below 30% owner-occ: owner component should be 0, only income+year contribute."""
+        below_floor = calc_market_quality(owner_pct=0.20, income=80000, year_built=1960, config=CONFIG)
+        at_floor = calc_market_quality(owner_pct=0.30, income=80000, year_built=1960, config=CONFIG)
+        assert below_floor == at_floor  # Both should have 0 for owner component
+
+    def test_owner_occ_ceiling_clamps_to_max(self):
+        """Above 90% owner-occ should score same as exactly 90%."""
+        at_ceiling = calc_market_quality(owner_pct=0.90, income=80000, year_built=1960, config=CONFIG)
+        above_ceiling = calc_market_quality(owner_pct=0.99, income=80000, year_built=1960, config=CONFIG)
+        assert at_ceiling == above_ceiling
 
 
 class TestCompetitiveOpportunity:
@@ -106,6 +115,12 @@ class TestCrmBadge:
     def test_signal(self):
         assert calc_crm_badge(5, CONFIG) == "SIGNAL"
 
+    def test_signal_at_boundary(self):
+        assert calc_crm_badge(1, CONFIG) == "SIGNAL"
+
+    def test_proven_at_boundary(self):
+        assert calc_crm_badge(10, CONFIG) == "PROVEN"
+
     def test_none(self):
         assert calc_crm_badge(0, CONFIG) is None
 
@@ -129,3 +144,88 @@ class TestPhiladelphiaVsLevittown:
         )
         assert philly > levittown, f"Philadelphia ({philly:.1f}) must beat Levittown ({levittown:.1f})"
         assert philly - levittown > 10, f"Gap ({philly - levittown:.1f}) should be >10 points"
+
+
+class TestHaversine:
+    def test_known_distance_philly_to_nyc(self):
+        """Philadelphia to New York is ~80 miles."""
+        dist = haversine(39.9526, -75.1652, 40.7128, -74.0060)
+        assert 75 < dist < 85
+
+    def test_same_point_is_zero(self):
+        dist = haversine(40.0, -75.0, 40.0, -75.0)
+        assert dist == 0.0
+
+    def test_known_distance_la_to_sf(self):
+        """LA to SF is ~347 miles."""
+        dist = haversine(34.0522, -118.2437, 37.7749, -122.4194)
+        assert 340 < dist < 360
+
+
+class TestSameBrandDistance:
+    def test_no_offices_returns_inf(self):
+        dist = calc_same_brand_distance(39.95, -75.17, [])
+        assert dist == float('inf')
+
+    def test_none_lat_returns_inf(self):
+        dist = calc_same_brand_distance(None, -75.17, [{"lat": 40.0, "lng": -75.0}])
+        assert dist == float('inf')
+
+    def test_none_lng_returns_inf(self):
+        dist = calc_same_brand_distance(39.95, None, [{"lat": 40.0, "lng": -75.0}])
+        assert dist == float('inf')
+
+    def test_nearest_office(self):
+        offices = [
+            {"lat": 40.7128, "lng": -74.0060},  # NYC ~80mi
+            {"lat": 39.2904, "lng": -76.6122},  # Baltimore ~100mi
+        ]
+        dist = calc_same_brand_distance(39.9526, -75.1652, offices)
+        assert 75 < dist < 85  # Should pick NYC as closest
+
+    def test_office_with_none_coords_skipped(self):
+        offices = [
+            {"lat": None, "lng": -74.0},
+            {"lat": 40.7128, "lng": -74.0060},
+        ]
+        dist = calc_same_brand_distance(39.9526, -75.1652, offices)
+        assert 75 < dist < 85
+
+
+class TestSisterBrandCount:
+    def test_count_nearby_brands(self):
+        locations = {
+            "SB": [{"lat": 39.95, "lng": -75.17}],
+            "LT": [{"lat": 39.96, "lng": -75.18}],
+            "CF": [{"lat": 33.75, "lng": -84.39}],  # Atlanta, far away
+        }
+        count = count_sister_brands(39.95, -75.17, locations, "SB", 50)
+        assert count == 1  # Only LT is nearby, CF is too far
+
+    def test_none_lat_returns_zero(self):
+        locations = {"SB": [{"lat": 39.95, "lng": -75.17}]}
+        count = count_sister_brands(None, -75.17, locations, "XX", 50)
+        assert count == 0
+
+    def test_no_other_brands(self):
+        locations = {"SB": [{"lat": 39.95, "lng": -75.17}]}
+        count = count_sister_brands(39.95, -75.17, locations, "SB", 50)
+        assert count == 0
+
+
+class TestCrossBrandDistance:
+    def test_no_offices_returns_inf(self):
+        dist = calc_cross_brand_distance(39.95, -75.17, [])
+        assert dist == float('inf')
+
+    def test_none_lat_returns_inf(self):
+        dist = calc_cross_brand_distance(None, -75.17, [{"lat": 40.0, "lng": -75.0}])
+        assert dist == float('inf')
+
+    def test_nearest_any_office(self):
+        offices = [
+            {"lat": 40.7128, "lng": -74.0060},
+            {"lat": 39.2904, "lng": -76.6122},
+        ]
+        dist = calc_cross_brand_distance(39.9526, -75.1652, offices)
+        assert 75 < dist < 85
