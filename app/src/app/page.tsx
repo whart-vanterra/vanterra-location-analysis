@@ -3,20 +3,24 @@
 import { useState, useMemo } from 'react';
 import type { Recommendation, Brand, ScoringConfig } from '@/lib/types';
 import { formatCityName } from '@/lib/explain';
+import { rescoreRecommendations } from '@/lib/rescore';
 import BrandSelector from '@/components/BrandSelector';
 import BrandCard from '@/components/BrandCard';
 import RecommendationTable from '@/components/RecommendationTable';
+import WeightSliders from '@/components/WeightSliders';
 
 import recommendationsData from '@/data/recommendations.json';
 import brandsData from '@/data/brands.json';
 import configData from '@/data/config.json';
 
 const brands = brandsData as unknown as Brand[];
-const config = configData as unknown as ScoringConfig;
+const defaultConfig = configData as unknown as ScoringConfig;
 const recommendationsByBrand = recommendationsData as unknown as Record<string, Recommendation[]>;
 
 export default function Home() {
   const [selectedBrandId, setSelectedBrandId] = useState<string | null>(null);
+  const [currentConfig, setCurrentConfig] = useState<ScoringConfig>(defaultConfig);
+  const [portfolioGapEnabled, setPortfolioGapEnabled] = useState(false);
 
   const selectedBrand = useMemo(
     () => brands.find((b) => b.brand_id === selectedBrandId) ?? null,
@@ -25,11 +29,16 @@ export default function Home() {
 
   const selectedRecommendations = useMemo(() => {
     if (!selectedBrandId) return [];
-    return recommendationsByBrand[selectedBrandId] ?? [];
-  }, [selectedBrandId]);
+    const raw = recommendationsByBrand[selectedBrandId] ?? [];
+    return rescoreRecommendations(raw, currentConfig, portfolioGapEnabled);
+  }, [selectedBrandId, currentConfig, portfolioGapEnabled]);
 
   return (
     <div>
+      <div className="mb-4">
+        <WeightSliders config={currentConfig} onChange={setCurrentConfig} />
+      </div>
+
       <div className="mb-6">
         <label className="block text-sm font-medium text-gray-700 mb-2">
           Select Brand
@@ -50,18 +59,26 @@ export default function Home() {
             </h3>
             <RecommendationTable
               recommendations={selectedRecommendations}
-              config={config}
+              config={currentConfig}
             />
           </div>
         </div>
       )}
 
-      {!selectedBrand && <AllBrandsSummary />}
+      {!selectedBrand && (
+        <AllBrandsSummary config={currentConfig} portfolioGapEnabled={portfolioGapEnabled} />
+      )}
     </div>
   );
 }
 
-function AllBrandsSummary() {
+function AllBrandsSummary({
+  config,
+  portfolioGapEnabled,
+}: {
+  config: ScoringConfig;
+  portfolioGapEnabled: boolean;
+}) {
   return (
     <div className="space-y-4">
       <h2 className="text-lg font-semibold text-gray-900">All Brands Overview</h2>
@@ -71,7 +88,8 @@ function AllBrandsSummary() {
 
       <div className="grid gap-4">
         {brands.map((brand) => {
-          const recs = recommendationsByBrand[brand.brand_id] ?? [];
+          const raw = recommendationsByBrand[brand.brand_id] ?? [];
+          const recs = rescoreRecommendations(raw, config, portfolioGapEnabled);
           const top3 = recs.slice(0, 3);
 
           return (
