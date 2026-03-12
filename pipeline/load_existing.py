@@ -168,7 +168,7 @@ def load_search_volumes(sb) -> None:
                 "crawlspace_vol": entry.get("crawlspace_vol"),
                 "concrete_vol": entry.get("concrete_vol"),
                 "avg_competition_index": entry.get("avg_competition_index"),
-                "avg_cpc_high": entry.get("avg_cpc_high"),
+                "avg_cpc": entry.get("avg_cpc_high"),
             }
         )
 
@@ -187,8 +187,14 @@ def load_census(sb) -> None:
     census_rows: list[dict] = []
 
     for label, entry in data["data"].items():
-        city = entry["city"]
-        state = entry["state"]
+        if "city" in entry:
+            city = entry["city"]
+            state = entry["state"]
+        else:
+            # Some entries have census_name instead of city/state — parse from label
+            parts = label.rsplit(", ", 1)
+            city = parts[0]
+            state = parts[1] if len(parts) > 1 else ""
         city_key, display = normalize_city_key(city, state, return_display=True)
 
         city_rows.append(
