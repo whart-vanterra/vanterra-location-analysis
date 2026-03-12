@@ -11,9 +11,9 @@ import recommendationsData from '@/data/recommendations.json';
 import brandsData from '@/data/brands.json';
 import configData from '@/data/config.json';
 
-const brands = brandsData as Brand[];
-const config = configData as ScoringConfig;
-const recommendationsByBrand = recommendationsData as Record<string, Recommendation[]>;
+const brands = brandsData as unknown as Brand[];
+const config = configData as unknown as ScoringConfig;
+const recommendationsByBrand = recommendationsData as unknown as Record<string, Recommendation[]>;
 
 export default function Home() {
   const [selectedBrandId, setSelectedBrandId] = useState<string | null>(null);

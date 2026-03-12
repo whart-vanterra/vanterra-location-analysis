@@ -53,12 +53,12 @@ export interface Brand {
   brand_id: string;
   display_name: string;
   existing_locations: Array<{ city_key: string; city: string; state: string; lat: number; lng: number }>;
-  zip_count: number;
+  zip_count: number | null;
   total_leads: number;
   total_jobs: number;
   total_revenue: number;
   investment_tier: string;
-  investment_note: string;
+  investment_note: string | null;
   confidence_tier: 'HIGH' | 'MODERATE' | 'LOW' | 'SPECULATIVE';
   keyword_weights: Record<string, number>;
 }
