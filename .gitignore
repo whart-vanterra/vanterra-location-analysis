@@ -13,7 +13,6 @@ app/.next/
 app/out/
 
 # Generated data (produced by pipeline/export.py)
-app/src/data/
 
 # Superpowers
 .superpowers/

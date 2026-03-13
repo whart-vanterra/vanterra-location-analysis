@@ -1,0 +1,706 @@
+[
+  {
+    "brand_id": "FB-FB",
+    "display_name": "Force Basements",
+    "existing_locations": [
+      {
+        "city_key": "pekin|il",
+        "city": "Pekin",
+        "state": "IL",
+        "lat": 40.568,
+        "lng": -89.641,
+        "population": 41661,
+        "owner_occupied_pct": 0.594,
+        "median_household_income": 52507,
+        "median_year_built": 1962,
+        "search_vol_total": 80
+      }
+    ],
+    "keyword_weights": {
+      "basement_waterproofing": 1.0,
+      "foundation_repair": 0.2,
+      "crawl_space": 0.2
+    },
+    "confidence_tier": "MODERATE",
+    "investment_tier": "2",
+    "total_leads": 479,
+    "total_jobs": 569,
+    "total_revenue": 457047
+  },
+  {
+    "brand_id": "AC",
+    "display_name": "Accurate Basement Repair",
+    "existing_locations": [
+      {
+        "city_key": "milwaukee|wi",
+        "city": "Milwaukee",
+        "state": "WI",
+        "lat": 42.963,
+        "lng": -87.871,
+        "population": 809038,
+        "owner_occupied_pct": 0.369,
+        "median_household_income": 49733,
+        "median_year_built": 1952,
+        "search_vol_total": 560
+      }
+    ],
+    "keyword_weights": {
+      "basement_waterproofing": 1.0,
+      "foundation_repair": 0.2,
+      "crawl_space": 0.2
+    },
+    "confidence_tier": "MODERATE",
+    "investment_tier": "1",
+    "total_leads": 508,
+    "total_jobs": 346,
+    "total_revenue": 332029
+  },
+  {
+    "brand_id": "KC",
+    "display_name": "KC Waterproofing & Foundations Repair",
+    "existing_locations": [
+      {
+        "city_key": "grandview|mo",
+        "city": "Grandview",
+        "state": "MO",
+        "lat": 38.889,
+        "lng": -94.536,
+        "population": null,
+        "owner_occupied_pct": 0.469,
+        "median_household_income": 51048,
+        "median_year_built": 1973,
+        "search_vol_total": 80
+      },
+      {
+        "city_key": "north kansas|mo",
+        "city": "North Kansas City",
+        "state": "MO",
+        "lat": 39.137,
+        "lng": -94.574,
+        "population": null,
+        "owner_occupied_pct": 0.263,
+        "median_household_income": 42743,
+        "median_year_built": 1966,
+        "search_vol_total": 70
+      }
+    ],
+    "keyword_weights": {
+      "basement_waterproofing": 1.0,
+      "foundation_repair": 1.0,
+      "crawl_space": 0.2
+    },
+    "confidence_tier": "MODERATE",
+    "investment_tier": "0",
+    "total_leads": 1592,
+    "total_jobs": 242,
+    "total_revenue": 151988
+  },
+  {
+    "brand_id": "CB",
+    "display_name": "Crawl Space Brothers",
+    "existing_locations": [
+      {
+        "city_key": "arlington|va",
+        "city": "Arlington",
+        "state": "VA",
+        "lat": 38.879,
+        "lng": -77.109,
+        "population": 232476,
+        "owner_occupied_pct": 0.393,
+        "median_household_income": 137387,
+        "median_year_built": 1976,
+        "search_vol_total": 150
+      },
+      {
+        "city_key": "charlotte|nc",
+        "city": "Charlotte",
+        "state": "NC",
+        "lat": 35.188,
+        "lng": -80.855,
+        "population": 923655,
+        "owner_occupied_pct": 0.482,
+        "median_household_income": 74070,
+        "median_year_built": 1993,
+        "search_vol_total": 890
+      },
+      {
+        "city_key": "columbia|sc",
+        "city": "Columbia",
+        "state": "SC",
+        "lat": 34.087,
+        "lng": -80.921,
+        "population": 343984,
+        "owner_occupied_pct": 0.401,
+        "median_household_income": 54095,
+        "median_year_built": 1977,
+        "search_vol_total": 220
+      },
+      {
+        "city_key": "greensboro|nc",
+        "city": "Greensboro",
+        "state": "NC",
+        "lat": 36.054,
+        "lng": -79.905,
+        "population": 330277,
+        "owner_occupied_pct": 0.448,
+        "median_household_income": 55051,
+        "median_year_built": 1984,
+        "search_vol_total": 230
+      },
+      {
+        "city_key": "greenville|sc",
+        "city": "Greenville",
+        "state": "SC",
+        "lat": 34.826,
+        "lng": -82.346,
+        "population": 221595,
+        "owner_occupied_pct": 0.376,
+        "median_household_income": 65519,
+        "median_year_built": 1985,
+        "search_vol_total": 250
+      },
+      {
+        "city_key": "nashville|tn",
+        "city": "Nashville",
+        "state": "TN",
+        "lat": 36.109,
+        "lng": -86.665,
+        "population": 459738,
+        "owner_occupied_pct": 0.487,
+        "median_household_income": 71328,
+        "median_year_built": 1984,
+        "search_vol_total": 990
+      },
+      {
+        "city_key": "raleigh|nc",
+        "city": "Raleigh",
+        "state": "NC",
+        "lat": 35.802,
+        "lng": -78.598,
+        "population": 555041,
+        "owner_occupied_pct": 0.459,
+        "median_household_income": 78631,
+        "median_year_built": 1995,
+        "search_vol_total": 620
+      },
+      {
+        "city_key": "washington|dc",
+        "city": "Washington",
+        "state": "DC",
+        "lat": 38.905,
+        "lng": -77.032,
+        "population": 692476,
+        "owner_occupied_pct": 0.374,
+        "median_household_income": 101722,
+        "median_year_built": 1956,
+        "search_vol_total": 540
+      }
+    ],
+    "keyword_weights": {
+      "crawl_space": 1.0,
+      "basement_waterproofing": 0.2,
+      "foundation_repair": 0.2
+    },
+    "confidence_tier": "SPECULATIVE",
+    "investment_tier": "1",
+    "total_leads": 24,
+    "total_jobs": 0,
+    "total_revenue": 0
+  },
+  {
+    "brand_id": "ES",
+    "display_name": "Engineered Solutions of Georgia",
+    "existing_locations": [
+      {
+        "city_key": "smyrna|ga",
+        "city": "Smyrna",
+        "state": "GA",
+        "lat": 33.855,
+        "lng": -84.506,
+        "population": 57067,
+        "owner_occupied_pct": 0.536,
+        "median_household_income": 92258,
+        "median_year_built": 1989,
+        "search_vol_total": 80
+      }
+    ],
+    "keyword_weights": {
+      "foundation_repair": 1.0,
+      "basement_waterproofing": 0.2,
+      "crawl_space": 0.2
+    },
+    "confidence_tier": "LOW",
+    "investment_tier": "1",
+    "total_leads": 175,
+    "total_jobs": 0,
+    "total_revenue": 0
+  },
+  {
+    "brand_id": "CF",
+    "display_name": "Carolina Foundation Solutions",
+    "existing_locations": [
+      {
+        "city_key": "burlington|nc",
+        "city": "Burlington",
+        "state": "NC",
+        "lat": 36.076,
+        "lng": -79.462,
+        "population": 79430,
+        "owner_occupied_pct": 0.505,
+        "median_household_income": 52963,
+        "median_year_built": 1976,
+        "search_vol_total": 110
+      },
+      {
+        "city_key": "cowpens|sc",
+        "city": "Cowpens",
+        "state": "SC",
+        "lat": 35.017,
+        "lng": -81.804,
+        "population": null,
+        "owner_occupied_pct": 0.601,
+        "median_household_income": 36585,
+        "median_year_built": 1971,
+        "search_vol_total": 50
+      },
+      {
+        "city_key": "shallotte|nc",
+        "city": "Shallotte",
+        "state": "NC",
+        "lat": 33.973,
+        "lng": -78.386,
+        "population": null,
+        "owner_occupied_pct": 0.547,
+        "median_household_income": 71659,
+        "median_year_built": 2003,
+        "search_vol_total": 70
+      }
+    ],
+    "keyword_weights": {
+      "foundation_repair": 1.0,
+      "basement_waterproofing": 0.2,
+      "crawl_space": 0.2
+    },
+    "confidence_tier": "SPECULATIVE",
+    "investment_tier": "1",
+    "total_leads": 6,
+    "total_jobs": 0,
+    "total_revenue": 0
+  },
+  {
+    "brand_id": "58-NC",
+    "display_name": "58 Foundations - North Carolina",
+    "existing_locations": [
+      {
+        "city_key": "thomasville|nc",
+        "city": "Thomasville",
+        "state": "NC",
+        "lat": 35.872,
+        "lng": -80.073,
+        "population": 45974,
+        "owner_occupied_pct": 0.55,
+        "median_household_income": 48457,
+        "median_year_built": 1979,
+        "search_vol_total": 80
+      }
+    ],
+    "keyword_weights": {
+      "foundation_repair": 1.0,
+      "basement_waterproofing": 0.2,
+      "crawl_space": 0.2
+    },
+    "confidence_tier": "HIGH",
+    "investment_tier": "5",
+    "total_leads": 858,
+    "total_jobs": 145,
+    "total_revenue": 0
+  },
+  {
+    "brand_id": "58-GA",
+    "display_name": "58 Foundations - Georgia",
+    "existing_locations": [
+      {
+        "city_key": "woodstock|ga",
+        "city": "Woodstock",
+        "state": "GA",
+        "lat": 34.101,
+        "lng": -84.519,
+        "population": 103645,
+        "owner_occupied_pct": 0.626,
+        "median_household_income": 100913,
+        "median_year_built": 2005,
+        "search_vol_total": 90
+      }
+    ],
+    "keyword_weights": {
+      "foundation_repair": 1.0,
+      "basement_waterproofing": 0.2,
+      "crawl_space": 0.2
+    },
+    "confidence_tier": "HIGH",
+    "investment_tier": "3",
+    "total_leads": 1303,
+    "total_jobs": 270,
+    "total_revenue": 0
+  },
+  {
+    "brand_id": "SB",
+    "display_name": "Safe Basements",
+    "existing_locations": [
+      {
+        "city_key": "golden valley|mn",
+        "city": "Golden Valley",
+        "state": "MN",
+        "lat": 44.992,
+        "lng": -93.359,
+        "population": null,
+        "owner_occupied_pct": 0.68,
+        "median_household_income": 110026,
+        "median_year_built": 1965,
+        "search_vol_total": 150
+      },
+      {
+        "city_key": "hastings|mn",
+        "city": "Hastings",
+        "state": "MN",
+        "lat": 44.732,
+        "lng": -92.851,
+        "population": 30140,
+        "owner_occupied_pct": 0.706,
+        "median_household_income": 87722,
+        "median_year_built": 1986,
+        "search_vol_total": 80
+      },
+      {
+        "city_key": "litchfield|mn",
+        "city": "Litchfield",
+        "state": "MN",
+        "lat": 45.127,
+        "lng": -94.528,
+        "population": null,
+        "owner_occupied_pct": 0.658,
+        "median_household_income": 60804,
+        "median_year_built": 1970,
+        "search_vol_total": 80
+      },
+      {
+        "city_key": "moorhead|mn",
+        "city": "Moorhead",
+        "state": "MN",
+        "lat": 46.874,
+        "lng": -96.768,
+        "population": 44321,
+        "owner_occupied_pct": 0.548,
+        "median_household_income": 68680,
+        "median_year_built": 1981,
+        "search_vol_total": 80
+      },
+      {
+        "city_key": "saint louis park|mn",
+        "city": "St Louis Park",
+        "state": "MN",
+        "lat": 44.948,
+        "lng": -93.348,
+        "population": null,
+        "owner_occupied_pct": 0.564,
+        "median_household_income": 94263,
+        "median_year_built": 1964,
+        "search_vol_total": 150
+      }
+    ],
+    "keyword_weights": {
+      "basement_waterproofing": 1.0,
+      "foundation_repair": 0.2,
+      "crawl_space": 0.2
+    },
+    "confidence_tier": "HIGH",
+    "investment_tier": "2-3",
+    "total_leads": 335,
+    "total_jobs": 135,
+    "total_revenue": 0
+  },
+  {
+    "brand_id": "DC",
+    "display_name": "Drycrete Waterproofing",
+    "existing_locations": [
+      {
+        "city_key": "east providence|ri",
+        "city": "East Providence",
+        "state": "RI",
+        "lat": 41.812,
+        "lng": -71.359,
+        "population": null,
+        "owner_occupied_pct": 0.568,
+        "median_household_income": 71736,
+        "median_year_built": 1956,
+        "search_vol_total": 80
+      },
+      {
+        "city_key": "walpole|ma",
+        "city": "Walpole",
+        "state": "MA",
+        "lat": 42.109,
+        "lng": -71.247,
+        "population": null,
+        "owner_occupied_pct": 0.763,
+        "median_household_income": 121210,
+        "median_year_built": 1967,
+        "search_vol_total": 60
+      }
+    ],
+    "keyword_weights": {
+      "basement_waterproofing": 1.0,
+      "foundation_repair": 1.0,
+      "crawl_space": 1.0
+    },
+    "confidence_tier": "HIGH",
+    "investment_tier": "3-5",
+    "total_leads": 220,
+    "total_jobs": 95,
+    "total_revenue": 0
+  },
+  {
+    "brand_id": "LT",
+    "display_name": "Liftech",
+    "existing_locations": [
+      {
+        "city_key": "lakewood|co",
+        "city": "Lakewood",
+        "state": "CO",
+        "lat": 39.699,
+        "lng": -105.141,
+        "population": null,
+        "owner_occupied_pct": 0.551,
+        "median_household_income": 82786,
+        "median_year_built": 1976,
+        "search_vol_total": 180
+      }
+    ],
+    "keyword_weights": {
+      "foundation_repair": 1.0,
+      "basement_waterproofing": 0.2,
+      "crawl_space": 0.2
+    },
+    "confidence_tier": "HIGH",
+    "investment_tier": "2",
+    "total_leads": 495,
+    "total_jobs": 267,
+    "total_revenue": 0
+  },
+  {
+    "brand_id": "58-TN",
+    "display_name": "58 Foundations - Tennessee",
+    "existing_locations": [
+      {
+        "city_key": "chattanooga|tn",
+        "city": "Chattanooga",
+        "state": "TN",
+        "lat": 35.03,
+        "lng": -85.248,
+        "population": 210667,
+        "owner_occupied_pct": 0.477,
+        "median_household_income": 57703,
+        "median_year_built": 1974,
+        "search_vol_total": 300
+      },
+      {
+        "city_key": "knoxville|tn",
+        "city": "Knoxville",
+        "state": "TN",
+        "lat": 35.991,
+        "lng": -83.937,
+        "population": 391360,
+        "owner_occupied_pct": 0.414,
+        "median_household_income": 48309,
+        "median_year_built": 1973,
+        "search_vol_total": 450
+      }
+    ],
+    "keyword_weights": {
+      "foundation_repair": 1.0,
+      "basement_waterproofing": 0.2,
+      "crawl_space": 0.2
+    },
+    "confidence_tier": "HIGH",
+    "investment_tier": "2",
+    "total_leads": 1039,
+    "total_jobs": 280,
+    "total_revenue": 0
+  },
+  {
+    "brand_id": "58-SC",
+    "display_name": "58 Foundations - South Carolina",
+    "existing_locations": [
+      {
+        "city_key": "spartanburg|sc",
+        "city": "Spartanburg",
+        "state": "SC",
+        "lat": 34.95,
+        "lng": -81.932,
+        "population": 112001,
+        "owner_occupied_pct": 0.476,
+        "median_household_income": 49140,
+        "median_year_built": 1968,
+        "search_vol_total": 110
+      }
+    ],
+    "keyword_weights": {
+      "foundation_repair": 1.0,
+      "basement_waterproofing": 0.2,
+      "crawl_space": 0.2
+    },
+    "confidence_tier": "HIGH",
+    "investment_tier": "2-3",
+    "total_leads": 774,
+    "total_jobs": 176,
+    "total_revenue": 0
+  },
+  {
+    "brand_id": "58-MA",
+    "display_name": "58 Foundations - Mid Atlantic",
+    "existing_locations": [
+      {
+        "city_key": "linthicum heights|md",
+        "city": "Linthicum Heights",
+        "state": "MD",
+        "lat": 39.205,
+        "lng": -76.654,
+        "population": null,
+        "owner_occupied_pct": null,
+        "median_household_income": null,
+        "median_year_built": null,
+        "search_vol_total": 70
+      },
+      {
+        "city_key": "newark|de",
+        "city": "Newark",
+        "state": "DE",
+        "lat": 39.668,
+        "lng": -75.749,
+        "population": 143641,
+        "owner_occupied_pct": 0.454,
+        "median_household_income": 67738,
+        "median_year_built": 1977,
+        "search_vol_total": 110
+      },
+      {
+        "city_key": "red lion|pa",
+        "city": "Red Lion",
+        "state": "PA",
+        "lat": 39.891,
+        "lng": -76.607,
+        "population": null,
+        "owner_occupied_pct": 0.519,
+        "median_household_income": 59503,
+        "median_year_built": 1949,
+        "search_vol_total": 60
+      },
+      {
+        "city_key": "woodbridge|va",
+        "city": "Woodbridge",
+        "state": "VA",
+        "lat": 38.641,
+        "lng": -77.26,
+        "population": 212018,
+        "owner_occupied_pct": 0.548,
+        "median_household_income": 93347,
+        "median_year_built": 1985,
+        "search_vol_total": 110
+      }
+    ],
+    "keyword_weights": {
+      "foundation_repair": 1.0,
+      "basement_waterproofing": 0.2,
+      "crawl_space": 0.2
+    },
+    "confidence_tier": "HIGH",
+    "investment_tier": "3-5",
+    "total_leads": 1953,
+    "total_jobs": 491,
+    "total_revenue": 0
+  },
+  {
+    "brand_id": "AW",
+    "display_name": "Anchored Walls",
+    "existing_locations": [
+      {
+        "city_key": "winterset|ia",
+        "city": "Winterset",
+        "state": "IA",
+        "lat": 41.462,
+        "lng": -94.014,
+        "population": null,
+        "owner_occupied_pct": 0.675,
+        "median_household_income": 71411,
+        "median_year_built": 1967,
+        "search_vol_total": 60
+      }
+    ],
+    "keyword_weights": {
+      "foundation_repair": 1.0,
+      "basement_waterproofing": 0.2,
+      "crawl_space": 0.2
+    },
+    "confidence_tier": "MODERATE",
+    "investment_tier": "2",
+    "total_leads": 294,
+    "total_jobs": 99,
+    "total_revenue": 0
+  },
+  {
+    "brand_id": "KF",
+    "display_name": "Kefficient Foundations & Waterproofing",
+    "existing_locations": [
+      {
+        "city_key": "richmond|va",
+        "city": "Richmond",
+        "state": "VA",
+        "lat": 37.419,
+        "lng": -77.471,
+        "population": 395178,
+        "owner_occupied_pct": 0.392,
+        "median_household_income": 59606,
+        "median_year_built": 1958,
+        "search_vol_total": 430
+      }
+    ],
+    "keyword_weights": {
+      "foundation_repair": 1.0,
+      "basement_waterproofing": 1.0,
+      "crawl_space": 0.2
+    },
+    "confidence_tier": "HIGH",
+    "investment_tier": "3",
+    "total_leads": 1062,
+    "total_jobs": 195,
+    "total_revenue": 0
+  },
+  {
+    "brand_id": "SD",
+    "display_name": "Southern Dry",
+    "existing_locations": [
+      {
+        "city_key": "pell|al",
+        "city": "Pell City",
+        "state": "AL",
+        "lat": 33.6,
+        "lng": -86.263,
+        "population": null,
+        "owner_occupied_pct": 0.58,
+        "median_household_income": 71027,
+        "median_year_built": 1990,
+        "search_vol_total": 60
+      }
+    ],
+    "keyword_weights": {
+      "basement_waterproofing": 1.0,
+      "foundation_repair": 1.0,
+      "crawl_space": 1.0
+    },
+    "confidence_tier": "HIGH",
+    "investment_tier": "3",
+    "total_leads": 235,
+    "total_jobs": 36,
+    "total_revenue": 0
+  }
+]
