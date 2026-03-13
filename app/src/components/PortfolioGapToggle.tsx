@@ -13,9 +13,8 @@ export default function PortfolioGapToggle({ enabled, onToggle }: PortfolioGapTo
         role="switch"
         aria-checked={enabled}
         onClick={() => onToggle(!enabled)}
-        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-          enabled ? 'bg-blue-600' : 'bg-gray-300'
-        }`}
+        className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors"
+        style={{ backgroundColor: enabled ? '#4C9784' : '#d1d5db' }}
       >
         <span
           className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${

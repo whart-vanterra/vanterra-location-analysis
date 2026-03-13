@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import type { Recommendation, Brand, ScoringConfig } from '@/lib/types';
-import { rescoreRecommendations } from '@/lib/rescore';
+import { rescoreRecommendations, rescoreWithOfficeToggle } from '@/lib/rescore';
 import BrandSelector from '@/components/BrandSelector';
 import BrandCard from '@/components/BrandCard';
 import RecommendationTable from '@/components/RecommendationTable';
@@ -67,40 +67,57 @@ export default function Home() {
     setExpansionPlan((prev) => prev.filter((p) => !(p.city_key === cityKey && p.brand_id === brandId)));
   }
 
+  function handleClearPlan() {
+    setExpansionPlan([]);
+  }
+
+  const plannedKeys = useMemo(() => {
+    return new Set(expansionPlan.map((p) => `${p.brand_id}-${p.city_key}`));
+  }, [expansionPlan]);
+
   const selectedRecommendations = useMemo(() => {
-    if (!selectedBrandId) return [];
+    if (!selectedBrandId || !selectedBrand) return [];
     const raw = recommendationsByBrand[selectedBrandId] ?? [];
-    return rescoreRecommendations(raw, currentConfig, portfolioGapEnabled);
-  }, [selectedBrandId, currentConfig, portfolioGapEnabled]);
+
+    const allActive = selectedBrand.existing_locations.every((loc) =>
+      activeOffices.has(loc.city_key)
+    );
+
+    if (allActive) {
+      return rescoreRecommendations(raw, currentConfig, portfolioGapEnabled);
+    }
+
+    return rescoreWithOfficeToggle(raw, currentConfig, portfolioGapEnabled, selectedBrand, activeOffices);
+  }, [selectedBrandId, selectedBrand, currentConfig, portfolioGapEnabled, activeOffices]);
 
   return (
-    <div>
-      <div className="mb-4">
-        <MethodologyPanel />
-      </div>
+    <div className="flex flex-col min-h-[calc(100vh-4rem)]">
+      <div className="flex-1">
+        <div className="mb-4">
+          <MethodologyPanel />
+        </div>
 
-      <div className="mb-4">
-        <WeightSliders config={currentConfig} onChange={setCurrentConfig} />
-      </div>
+        <div className="mb-4">
+          <WeightSliders config={currentConfig} onChange={setCurrentConfig} />
+        </div>
 
-      <div className="mb-4">
-        <PortfolioGapToggle enabled={portfolioGapEnabled} onToggle={setPortfolioGapEnabled} />
-      </div>
+        <div className="mb-4">
+          <PortfolioGapToggle enabled={portfolioGapEnabled} onToggle={setPortfolioGapEnabled} />
+        </div>
 
-      <div className="mb-6">
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Select Brand
-        </label>
-        <BrandSelector
-          brands={brands}
-          selectedBrandId={selectedBrandId}
-          onSelect={handleBrandSelect}
-        />
-      </div>
+        <div className="mb-6">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Select Brand
+          </label>
+          <BrandSelector
+            brands={brands}
+            selectedBrandId={selectedBrandId}
+            onSelect={handleBrandSelect}
+          />
+        </div>
 
-      {selectedBrand && (
-        <div className="flex gap-4">
-          <div className="flex-1 min-w-0">
+        {selectedBrand && (
+          <div>
             <BrandCard brand={selectedBrand} />
             <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm mb-4">
               <OfficeToggle
@@ -117,24 +134,30 @@ export default function Home() {
                 recommendations={selectedRecommendations}
                 config={currentConfig}
                 onAddToPlan={handleAddToPlan}
+                plannedKeys={plannedKeys}
               />
             </div>
           </div>
-          <div className="w-72 flex-shrink-0 sticky top-20 self-start">
-            <ExpansionPlanner plan={expansionPlan} onRemove={handleRemoveFromPlan} />
-          </div>
-        </div>
-      )}
+        )}
 
-      {!selectedBrand && (
-        <BrandPortfolioDashboard
-          brands={brands}
-          recommendationsByBrand={recommendationsByBrand}
-          config={currentConfig}
-          portfolioGapEnabled={portfolioGapEnabled}
-          onSelectBrand={handleBrandSelect}
+        {!selectedBrand && (
+          <BrandPortfolioDashboard
+            brands={brands}
+            recommendationsByBrand={recommendationsByBrand}
+            config={currentConfig}
+            portfolioGapEnabled={portfolioGapEnabled}
+            onSelectBrand={handleBrandSelect}
+          />
+        )}
+      </div>
+
+      <div className="sticky bottom-0 z-20">
+        <ExpansionPlanner
+          plan={expansionPlan}
+          onRemove={handleRemoveFromPlan}
+          onClearAll={handleClearPlan}
         />
-      )}
+      </div>
     </div>
   );
 }

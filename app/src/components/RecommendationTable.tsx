@@ -12,35 +12,38 @@ interface RecommendationTableProps {
   recommendations: Recommendation[];
   config: ScoringConfig;
   onAddToPlan?: (rec: Recommendation) => void;
+  plannedKeys?: Set<string>;
 }
 
 type SortKey =
   | 'rank'
   | 'city'
   | 'composite_score'
+  | 'market_demand_score'
+  | 'market_quality_score'
+  | 'strategic_fit_score'
   | 'search_vol_total'
   | 'population'
   | 'competition_index'
-  | 'same_brand_distance_mi';
+  | 'same_brand_distance_mi'
+  | 'portfolio_gap_score';
 
 type SortDir = 'asc' | 'desc';
 
-const INITIAL_ROWS = 25;
-
-function rowColor(score: number): string {
-  if (score >= 75) return 'bg-green-50';
-  if (score >= 50) return 'bg-yellow-50';
-  return 'bg-red-50';
+function scoreColor(score: number): string {
+  if (score >= 75) return '#2d9e5f';
+  if (score >= 50) return '#d4820a';
+  return '#c0392b';
 }
 
 export default function RecommendationTable({
   recommendations,
   config,
   onAddToPlan,
+  plannedKeys,
 }: RecommendationTableProps) {
   const [sortKey, setSortKey] = useState<SortKey>('rank');
   const [sortDir, setSortDir] = useState<SortDir>('asc');
-  const [showAll, setShowAll] = useState(false);
 
   function handleSort(key: SortKey) {
     if (sortKey === key) {
@@ -73,14 +76,12 @@ export default function RecommendationTable({
     return data;
   }, [recommendations, sortKey, sortDir]);
 
-  const visible = showAll ? sorted : sorted.slice(0, INITIAL_ROWS);
-
   function SortHeader({ label, col }: { label: string; col: SortKey }) {
     const active = sortKey === col;
     const arrow = active ? (sortDir === 'asc' ? ' \u25B2' : ' \u25BC') : '';
     return (
       <th
-        className="px-3 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:text-gray-900 select-none whitespace-nowrap"
+        className="px-2 py-2 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:text-gray-900 select-none whitespace-nowrap"
         onClick={() => handleSort(col)}
       >
         {label}{arrow}
@@ -96,75 +97,120 @@ export default function RecommendationTable({
     <div className="overflow-x-auto">
       <table className="w-full text-sm border-collapse">
         <thead>
-          <tr className="border-b-2 border-gray-200 bg-gray-50">
+          <tr className="border-b-2 border-gray-200" style={{ backgroundColor: '#f1f5f9' }}>
             <SortHeader label="Rank" col="rank" />
             <SortHeader label="City / State" col="city" />
-            <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider w-24">
+            <th className="px-2 py-2 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wider w-20">
               Breakdown
             </th>
             <SortHeader label="Score" col="composite_score" />
+            <SortHeader label="Demand" col="market_demand_score" />
+            <SortHeader label="Quality" col="market_quality_score" />
+            <SortHeader label="Strat. Fit" col="strategic_fit_score" />
             <SortHeader label="Search Vol" col="search_vol_total" />
-            <SortHeader label="Population" col="population" />
-            <SortHeader label="Competition" col="competition_index" />
+            <SortHeader label="Pop." col="population" />
+            <SortHeader label="Comp. Idx" col="competition_index" />
             <SortHeader label="Distance" col="same_brand_distance_mi" />
+            <SortHeader label="Gap" col="portfolio_gap_score" />
             {onAddToPlan && (
-              <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+              <th className="px-2 py-2 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wider">
                 Action
               </th>
             )}
           </tr>
         </thead>
         <tbody>
-          {visible.map((rec) => {
+          {sorted.map((rec) => {
             const cityName = formatCityName(rec.city_key);
+            const planKey = `${rec.brand_id}-${rec.city_key}`;
+            const isPlanned = plannedKeys?.has(planKey) ?? false;
             return (
               <tr
-                key={`${rec.brand_id}-${rec.city_key}`}
-                className={`border-b border-gray-100 ${rowColor(rec.composite_score)} hover:bg-gray-100 transition-colors`}
+                key={planKey}
+                className="border-b border-gray-100 transition-colors"
+                style={{
+                  backgroundColor: isPlanned ? '#e8f4f1' : undefined,
+                  borderLeft: isPlanned ? '3px solid #4C9784' : '3px solid transparent',
+                }}
+                onMouseEnter={(e) => {
+                  if (!isPlanned) e.currentTarget.style.backgroundColor = '#f8fffd';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = isPlanned ? '#e8f4f1' : '';
+                }}
               >
-                <td className="px-3 py-2 font-mono text-gray-600">{rec.rank}</td>
-                <td className="px-3 py-2">
+                <td className="px-2 py-2 font-mono text-gray-600">{rec.rank}</td>
+                <td className="px-2 py-2">
                   <span className="font-medium text-gray-900">{cityName}, {rec.state}</span>
                   <CrmBadge badge={rec.crm_badge} />
                   <SensitivityIndicator sensitive={rec.sensitivity_flag} />
                 </td>
-                <td className="px-3 py-2">
-                  <div className="w-24">
+                <td className="px-2 py-2">
+                  <div className="w-20">
                     <ScoreSparkline
                       demand={rec.market_demand_score}
                       quality={rec.market_quality_score}
-                      competition={rec.competitive_opportunity_score}
+                      strategicFit={rec.strategic_fit_score}
                     />
                   </div>
                 </td>
-                <td className="px-3 py-2">
+                <td className="px-2 py-2">
                   <ScorePopover recommendation={rec} config={config}>
-                    {rec.composite_score.toFixed(1)}
+                    <span style={{ color: scoreColor(rec.composite_score) }} className="font-bold">
+                      {rec.composite_score.toFixed(1)}
+                    </span>
                   </ScorePopover>
                 </td>
-                <td className="px-3 py-2 font-mono text-gray-700">
+                <td className="px-2 py-2 font-mono text-gray-700 text-xs">
+                  {rec.market_demand_score.toFixed(1)}
+                </td>
+                <td className="px-2 py-2 font-mono text-gray-700 text-xs">
+                  {rec.market_quality_score.toFixed(1)}
+                </td>
+                <td className="px-2 py-2 font-mono text-gray-700 text-xs">
+                  {rec.strategic_fit_score.toFixed(1)}
+                </td>
+                <td className="px-2 py-2 font-mono text-gray-700 text-xs">
                   {rec.search_vol_total.toLocaleString()}
                 </td>
-                <td className="px-3 py-2 font-mono text-gray-700">
+                <td className="px-2 py-2 font-mono text-gray-700 text-xs">
                   {rec.population.toLocaleString()}
                 </td>
-                <td className="px-3 py-2 font-mono text-gray-700">
+                <td className="px-2 py-2 font-mono text-gray-700 text-xs">
                   {rec.competition_index.toFixed(1)}
                 </td>
-                <td className="px-3 py-2 font-mono text-gray-700">
+                <td className="px-2 py-2 font-mono text-gray-700 text-xs">
                   {rec.same_brand_distance_mi != null
                     ? `${rec.same_brand_distance_mi.toFixed(0)} mi`
                     : '\u2014'}
                 </td>
+                <td className="px-2 py-2 font-mono text-gray-700 text-xs">
+                  {rec.portfolio_gap_score.toFixed(1)}
+                </td>
                 {onAddToPlan && (
-                  <td className="px-3 py-2">
-                    <button
-                      type="button"
-                      onClick={() => onAddToPlan(rec)}
-                      className="text-xs px-2.5 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
-                    >
-                      + Plan
-                    </button>
+                  <td className="px-2 py-2">
+                    {isPlanned ? (
+                      <span
+                        className="inline-flex items-center justify-center w-7 h-7 rounded-full"
+                        style={{ backgroundColor: '#e8f7ef', color: '#2d9e5f' }}
+                        title="Added to plan"
+                      >
+                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                        </svg>
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => onAddToPlan(rec)}
+                        className="text-xs px-2.5 py-1 text-white rounded transition-colors"
+                        style={{ backgroundColor: '#4C9784' }}
+                        onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#3a7868'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#4C9784'; }}
+                      >
+                        + Plan
+                      </button>
+                    )}
                   </td>
                 )}
               </tr>
@@ -172,30 +218,6 @@ export default function RecommendationTable({
           })}
         </tbody>
       </table>
-
-      {!showAll && recommendations.length > INITIAL_ROWS && (
-        <div className="text-center py-3">
-          <button
-            type="button"
-            onClick={() => setShowAll(true)}
-            className="text-sm text-blue-600 hover:text-blue-800 font-medium"
-          >
-            Show all {recommendations.length} recommendations
-          </button>
-        </div>
-      )}
-
-      {showAll && recommendations.length > INITIAL_ROWS && (
-        <div className="text-center py-3">
-          <button
-            type="button"
-            onClick={() => setShowAll(false)}
-            className="text-sm text-gray-500 hover:text-gray-700 font-medium"
-          >
-            Show top {INITIAL_ROWS} only
-          </button>
-        </div>
-      )}
     </div>
   );
 }

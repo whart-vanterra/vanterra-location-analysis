@@ -1,5 +1,5 @@
 export interface ScoringConfig {
-  weights: { market_demand: number; market_quality: number; competitive_opportunity: number };
+  weights: { market_demand: number; market_quality: number; strategic_fit: number };
   market_demand: { search_volume_pct: number; population_pct: number; population_cap: number };
   market_quality: {
     owner_occupied_pct: number; income_pct: number; year_built_pct: number;
@@ -7,8 +7,8 @@ export interface ScoringConfig {
     income_floor: number; income_ceiling: number;
     year_built_baseline: number; year_built_oldest: number;
   };
-  competitive_opportunity: {
-    competition_index_pct: number; same_brand_distance_pct: number;
+  strategic_fit: {
+    market_validation_pct: number; same_brand_distance_pct: number;
     sister_overlap_pct: number; sister_brand_radius_mi: number;
   };
   portfolio_gap: { max_points: number; density_thresholds: Record<string, number> };
@@ -28,7 +28,7 @@ export interface Recommendation {
   composite_score: number;
   market_demand_score: number;
   market_quality_score: number;
-  competitive_opportunity_score: number;
+  strategic_fit_score: number;
   portfolio_gap_score: number;
   search_vol_total: number;
   search_vol_breakdown: { foundation: number; basement: number; crawlspace: number; concrete: number };
@@ -37,6 +37,7 @@ export interface Recommendation {
   median_year_built: number;
   competition_index: number;
   same_brand_distance_mi: number | null;
+  nearest_same_brand_office?: string | null;
   sister_brands_nearby: number;
   cross_brand_distance_mi: number | null;
   crm_badge: 'PROVEN' | 'SIGNAL' | null;

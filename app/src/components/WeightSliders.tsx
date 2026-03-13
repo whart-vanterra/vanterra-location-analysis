@@ -8,12 +8,12 @@ interface WeightSlidersProps {
   onChange: (newConfig: ScoringConfig) => void;
 }
 
-const DEFAULT_WEIGHTS = { market_demand: 45, market_quality: 30, competitive_opportunity: 25 };
+const DEFAULT_WEIGHTS = { market_demand: 45, market_quality: 30, strategic_fit: 25 };
 
 const WEIGHT_LABELS: { key: keyof typeof DEFAULT_WEIGHTS; label: string }[] = [
   { key: 'market_demand', label: 'Market Demand' },
   { key: 'market_quality', label: 'Market Quality' },
-  { key: 'competitive_opportunity', label: 'Competitive Opportunity' },
+  { key: 'strategic_fit', label: 'Strategic Fit' },
 ];
 
 function redistributeWeights(
@@ -66,7 +66,7 @@ export default function WeightSliders({ config, onChange }: WeightSlidersProps) 
   const isDefault =
     config.weights.market_demand === DEFAULT_WEIGHTS.market_demand &&
     config.weights.market_quality === DEFAULT_WEIGHTS.market_quality &&
-    config.weights.competitive_opportunity === DEFAULT_WEIGHTS.competitive_opportunity;
+    config.weights.strategic_fit === DEFAULT_WEIGHTS.strategic_fit;
 
   return (
     <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
@@ -81,7 +81,7 @@ export default function WeightSliders({ config, onChange }: WeightSlidersProps) 
           </svg>
           Adjust Weights
           {!isDefault && (
-            <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">Modified</span>
+            <span className="text-xs px-1.5 py-0.5 rounded" style={{ backgroundColor: '#e8f4f1', color: '#4C9784' }}>Modified</span>
           )}
         </span>
         <svg
@@ -108,14 +108,15 @@ export default function WeightSliders({ config, onChange }: WeightSlidersProps) 
                 max={100}
                 value={config.weights[key]}
                 onChange={(e) => handleChange(key, parseInt(e.target.value, 10))}
-                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                style={{ accentColor: '#4C9784' }}
               />
             </div>
           ))}
 
           <div className="flex items-center justify-between pt-2">
             <span className="text-xs text-gray-400">
-              Total: {config.weights.market_demand + config.weights.market_quality + config.weights.competitive_opportunity}
+              Total: {config.weights.market_demand + config.weights.market_quality + config.weights.strategic_fit}
             </span>
             <button
               type="button"

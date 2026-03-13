@@ -6,6 +6,14 @@ export function clamp(val: number, lo: number, hi: number): number {
   return val;
 }
 
+export function haversine(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 3959;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.asin(Math.sqrt(a));
+}
+
 export function calcMarketDemand(
   brandVol: number,
   maxBrandVol: number,
@@ -55,17 +63,21 @@ export function calcMarketQuality(
   return ownerScore + incomeScore + yearScore;
 }
 
-export function calcCompetitiveOpportunity(
+export function calcStrategicFit(
   compIndex: number,
   sameBrandDist: number,
   sisterBrands: number,
   config: ScoringConfig,
 ): number {
-  const w = config.weights.competitive_opportunity;
-  const co = config.competitive_opportunity;
+  const w = config.weights.strategic_fit;
+  const sf = config.strategic_fit;
 
-  const rawComp = 1 - compIndex / 100;
-  const compScore = rawComp * w * co.competition_index_pct;
+  let rawComp: number;
+  if (compIndex >= 70) rawComp = 1.0;
+  else if (compIndex >= 40) rawComp = 0.7;
+  else if (compIndex >= 15) rawComp = 0.4;
+  else rawComp = 0.15;
+  const compScore = rawComp * w * sf.market_validation_pct;
 
   let rawDist: number;
   if (sameBrandDist < 15) {
@@ -77,7 +89,7 @@ export function calcCompetitiveOpportunity(
   } else {
     rawDist = 0.8;
   }
-  const sameBrandScore = rawDist * w * co.same_brand_distance_pct;
+  const sameBrandScore = rawDist * w * sf.same_brand_distance_pct;
 
   let rawSister: number;
   if (sisterBrands === 0) {
@@ -87,7 +99,7 @@ export function calcCompetitiveOpportunity(
   } else {
     rawSister = 0.4;
   }
-  const sisterScore = rawSister * w * co.sister_overlap_pct;
+  const sisterScore = rawSister * w * sf.sister_overlap_pct;
 
   return compScore + sameBrandScore + sisterScore;
 }
@@ -156,7 +168,7 @@ export function calcCompositeScore(input: CompositeScoreInput): number {
 
   const demand = calcMarketDemand(brandVol, maxBrandVol, population, maxBrandPop, config);
   const quality = calcMarketQuality(ownerPct, income, yearBuilt, config);
-  const opportunity = calcCompetitiveOpportunity(compIndex, sameBrandDist, sisterBrands, config);
+  const strategicFit = calcStrategicFit(compIndex, sameBrandDist, sisterBrands, config);
 
-  return demand + quality + opportunity;
+  return demand + quality + strategicFit;
 }

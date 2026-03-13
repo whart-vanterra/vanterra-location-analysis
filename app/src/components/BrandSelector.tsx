@@ -37,7 +37,7 @@ export default function BrandSelector({ brands, selectedBrandId, onSelect }: Bra
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between px-4 py-2 bg-white border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        className="w-full flex items-center justify-between px-4 py-2 bg-white border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#4C9784]"
       >
         <span className="truncate">{displayLabel}</span>
         <svg className="ml-2 h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -53,7 +53,7 @@ export default function BrandSelector({ brands, selectedBrandId, onSelect }: Bra
               placeholder="Search brands..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-[#4C9784]"
               autoFocus
             />
           </div>
@@ -63,8 +63,8 @@ export default function BrandSelector({ brands, selectedBrandId, onSelect }: Bra
               <button
                 type="button"
                 onClick={() => handleSelect(null)}
-                className={`w-full text-left px-4 py-2 text-sm hover:bg-blue-50 ${
-                  selectedBrandId === null ? 'bg-blue-50 font-semibold text-blue-700' : 'text-gray-700'
+                className={`w-full text-left px-4 py-2 text-sm hover:bg-[#e8f4f1] ${
+                  selectedBrandId === null ? 'bg-[#e8f4f1] font-semibold text-[#3a7868]' : 'text-gray-700'
                 }`}
               >
                 All Brands
@@ -75,9 +75,9 @@ export default function BrandSelector({ brands, selectedBrandId, onSelect }: Bra
                 <button
                   type="button"
                   onClick={() => handleSelect(brand.brand_id)}
-                  className={`w-full text-left px-4 py-2 text-sm hover:bg-blue-50 ${
+                  className={`w-full text-left px-4 py-2 text-sm hover:bg-[#e8f4f1] ${
                     selectedBrandId === brand.brand_id
-                      ? 'bg-blue-50 font-semibold text-blue-700'
+                      ? 'bg-[#e8f4f1] font-semibold text-[#3a7868]'
                       : 'text-gray-700'
                   }`}
                 >

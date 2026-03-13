@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { calcMarketDemand, calcMarketQuality, calcCompetitiveOpportunity, calcPortfolioGap, calcCrmBadge, calcCompositeScore } from './scoring';
+import { calcMarketDemand, calcMarketQuality, calcStrategicFit, calcPortfolioGap, calcCrmBadge, calcCompositeScore } from './scoring';
 import type { ScoringConfig } from './types';
 
 import config from '../../../pipeline/config.json';
@@ -52,11 +52,27 @@ describe('scoring engine unit tests', () => {
     expect(minQuality).toBe(0);
   });
 
-  it('competitive opportunity handles distance thresholds', () => {
-    const tooClose = calcCompetitiveOpportunity(0, 10, 0, typedConfig);
-    const sweetSpot = calcCompetitiveOpportunity(0, 45, 0, typedConfig);
-    const tooFar = calcCompetitiveOpportunity(0, 100, 0, typedConfig);
+  it('strategic fit rewards high competition as market validation', () => {
+    const highComp = calcStrategicFit(80, 45, 0, typedConfig);
+    const lowComp = calcStrategicFit(5, 45, 0, typedConfig);
+    expect(highComp).toBeGreaterThan(lowComp);
+  });
+
+  it('strategic fit handles distance thresholds', () => {
+    const tooClose = calcStrategicFit(50, 10, 0, typedConfig);
+    const sweetSpot = calcStrategicFit(50, 45, 0, typedConfig);
+    const tooFar = calcStrategicFit(50, 100, 0, typedConfig);
     expect(sweetSpot).toBeGreaterThan(tooClose);
     expect(sweetSpot).toBeGreaterThan(tooFar);
+  });
+
+  it('strategic fit tiered competition values', () => {
+    const veryHigh = calcStrategicFit(70, 45, 0, typedConfig);
+    const high = calcStrategicFit(40, 45, 0, typedConfig);
+    const moderate = calcStrategicFit(15, 45, 0, typedConfig);
+    const low = calcStrategicFit(5, 45, 0, typedConfig);
+    expect(veryHigh).toBeGreaterThan(high);
+    expect(high).toBeGreaterThan(moderate);
+    expect(moderate).toBeGreaterThan(low);
   });
 });

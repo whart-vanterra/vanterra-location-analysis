@@ -38,7 +38,7 @@ export default function MethodologyPanel() {
             <ScoreComponent
               title="Market Demand"
               points={45}
-              color="bg-blue-50 border-blue-200"
+              color={{ bg: '#e8f4f1', border: '#4C9784' }}
               description="Measures the size of the addressable market."
               signals={[
                 'Branded search volume (70%) — Google searches for brand-related services in the metro, weighted by keyword relevance',
@@ -48,7 +48,7 @@ export default function MethodologyPanel() {
             <ScoreComponent
               title="Market Quality"
               points={30}
-              color="bg-green-50 border-green-200"
+              color={{ bg: '#e8f7ef', border: '#2d9e5f' }}
               description="Evaluates whether the local housing stock and demographics fit the service model."
               signals={[
                 'Owner-occupied housing rate (55%) — Higher ownership correlates with demand for structural repair services',
@@ -57,13 +57,13 @@ export default function MethodologyPanel() {
               ]}
             />
             <ScoreComponent
-              title="Competitive Opportunity"
+              title="Strategic Fit"
               points={25}
-              color="bg-amber-50 border-amber-200"
-              description="Assesses the competitive landscape and brand saturation."
+              color={{ bg: '#fef3e2', border: '#d4820a' }}
+              description="Assesses market validation and brand positioning opportunities."
               signals={[
-                'Competition index (40%) — Lower competition from other service providers means more opportunity',
-                'Distance from nearest same-brand office (40%) — Ideal range is 30-60 miles; too close risks cannibalization',
+                'Market validation (50%) — Higher competition validates proven demand in the market',
+                'Distance from nearest same-brand office (30%) — Ideal range is 30-60 miles; too close risks cannibalization',
                 'Sister brand overlap (20%) — Fewer sister brands nearby means less internal competition',
               ]}
             />
@@ -117,12 +117,15 @@ function ScoreComponent({
 }: {
   title: string;
   points: number;
-  color: string;
+  color: { bg: string; border: string };
   description: string;
   signals: string[];
 }) {
   return (
-    <div className={`border rounded-lg p-3 ${color}`}>
+    <div
+      className="border rounded-lg p-3"
+      style={{ backgroundColor: color.bg, borderColor: color.border }}
+    >
       <div className="flex items-center justify-between mb-2">
         <h4 className="font-semibold text-gray-900 text-sm">{title}</h4>
         <span className="text-xs font-mono font-semibold text-gray-600">{points} pts</span>

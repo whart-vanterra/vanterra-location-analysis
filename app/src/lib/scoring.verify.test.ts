@@ -35,7 +35,6 @@ describe('canonical score verification (TS vs Python parity)', () => {
       const recs = (recommendations as any)[brandId];
       if (!Array.isArray(recs)) continue;
 
-      // Compute weighted brand_vol for each rec, then derive max
       const brandVols = recs.map((r: any) =>
         calcWeightedBrandVol(r.search_vol_breakdown, brandId),
       );

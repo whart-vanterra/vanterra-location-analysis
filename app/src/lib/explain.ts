@@ -24,10 +24,10 @@ function getFactors(rec: Recommendation, config: ScoringConfig): ScoreFactor[] {
       ratio: rec.market_quality_score / weights.market_quality,
     },
     {
-      label: 'Competitive Opportunity (low competition, distance from existing)',
-      points: rec.competitive_opportunity_score,
-      maxPoints: weights.competitive_opportunity,
-      ratio: rec.competitive_opportunity_score / weights.competitive_opportunity,
+      label: 'Strategic Fit (market validation, distance, sister brands)',
+      points: rec.strategic_fit_score,
+      maxPoints: weights.strategic_fit,
+      ratio: rec.strategic_fit_score / weights.strategic_fit,
     },
   ];
 }

@@ -24,9 +24,10 @@ export default function OfficeToggle({ locations, activeLocations, onToggle }: O
               onClick={() => onToggle(loc.city_key)}
               className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
                 isActive
-                  ? 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
+                  ? 'border-[#4C9784] text-[#3a7868] hover:bg-[#d0ebe4]'
                   : 'bg-gray-100 text-gray-400 border-gray-200 hover:bg-gray-200 line-through'
               }`}
+              style={isActive ? { backgroundColor: '#e8f4f1' } : undefined}
               title={isActive ? `Click to deactivate ${loc.city}, ${loc.state}` : `Click to reactivate ${loc.city}, ${loc.state}`}
             >
               {loc.city}, {loc.state}
