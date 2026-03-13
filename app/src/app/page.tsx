@@ -33,6 +33,8 @@ function isDefaultClosed(brandId: string, cityKey: string): boolean {
 }
 
 function buildPlanItems(brand: Brand): PlanItem[] {
+  const brandRecs = recommendationsByBrand[brand.brand_id] ?? [];
+  const recByCity = new Map(brandRecs.map((r) => [r.city_key, r]));
   return brand.existing_locations.map((loc) => ({
     action: isDefaultClosed(brand.brand_id, loc.city_key) ? 'CLOSE' as const : 'KEEP' as const,
     brand_id: brand.brand_id,
@@ -43,6 +45,7 @@ function buildPlanItems(brand: Brand): PlanItem[] {
     lat: loc.lat,
     lng: loc.lng,
     is_existing_office: true,
+    recommendation: recByCity.get(loc.city_key),
   }));
 }
 
