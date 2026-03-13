@@ -3,7 +3,7 @@ import json
 from pipeline.score import (
     calc_market_demand,
     calc_market_quality,
-    calc_competitive_opportunity,
+    calc_strategic_fit,
     calc_portfolio_gap,
     calc_crm_badge,
     calc_composite_score,
@@ -74,24 +74,26 @@ class TestMarketQuality:
         assert at_ceiling == above_ceiling
 
 
-class TestCompetitiveOpportunity:
-    def test_low_competition_scores_high(self):
-        score = calc_competitive_opportunity(
-            comp_index=8.2, same_brand_dist=45.0,
+class TestStrategicFit:
+    def test_high_competition_validates_market(self):
+        """comp_index 70+ = proven market, should score high on competition component."""
+        score = calc_strategic_fit(
+            comp_index=75.0, same_brand_dist=45.0,
             sister_brands=1, config=CONFIG
         )
-        assert score > 18
+        assert score > 20  # 12.5 comp + 7.5 dist + 3.5 sister = 23.5
 
     def test_close_same_brand_scores_zero_distance(self):
-        score = calc_competitive_opportunity(
+        """comp_index 50 now scores 0.7 tier; distance <15 still zeroes out."""
+        score = calc_strategic_fit(
             comp_index=50.0, same_brand_dist=10.0,
             sister_brands=0, config=CONFIG
         )
-        assert score < 20
+        assert score < 15  # 8.75 comp + 0 dist + 5.0 sister = 13.75
 
     def test_many_sisters_penalizes(self):
-        few = calc_competitive_opportunity(50, 45, 0, CONFIG)
-        many = calc_competitive_opportunity(50, 45, 4, CONFIG)
+        few = calc_strategic_fit(50, 45, 0, CONFIG)
+        many = calc_strategic_fit(50, 45, 4, CONFIG)
         assert few > many
 
 
@@ -144,7 +146,7 @@ class TestPhiladelphiaVsLevittown:
             config=CONFIG
         )
         assert philly > levittown, f"Philadelphia ({philly:.1f}) must beat Levittown ({levittown:.1f})"
-        assert philly - levittown > 10, f"Gap ({philly - levittown:.1f}) should be >10 points"
+        assert philly - levittown > 5, f"Gap ({philly - levittown:.1f}) should be >5 points"
 
 
 class TestHaversine:

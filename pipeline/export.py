@@ -56,7 +56,7 @@ def build_recommendations(recs: list[dict], cities_by_key: dict) -> dict:
             "composite_score": rec.get("composite_score"),
             "market_demand_score": rec.get("market_demand_score"),
             "market_quality_score": rec.get("market_quality_score"),
-            "competitive_opportunity_score": rec.get("competitive_opportunity_score"),
+            "strategic_fit_score": rec.get("strategic_fit_score"),
             "portfolio_gap_score": rec.get("portfolio_gap_score"),
             "search_vol_total": rec.get("search_vol_total"),
             "search_vol_breakdown": parse_json_field(rec.get("search_vol_breakdown")),

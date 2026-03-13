@@ -89,25 +89,32 @@ def calc_market_quality(
     return owner_score + income_score + year_score
 
 
-def calc_competitive_opportunity(
+def calc_strategic_fit(
     comp_index: float,
     same_brand_dist: float,
     sister_brands: int,
     config: dict,
 ) -> float:
-    """Competitive Opportunity score (0 to weights.competitive_opportunity).
+    """Strategic Fit score (0 to weights.strategic_fit).
 
     Three sub-components:
-      - Competition index inverted (50%)
+      - Market validation via competition index (50%) — high = proven market
       - Same-brand distance (30%)
       - Sister brand overlap (20%)
     """
-    w = config["weights"]["competitive_opportunity"]
-    co = config["competitive_opportunity"]
+    w = config["weights"]["strategic_fit"]
+    sf = config["strategic_fit"]
 
-    # Competition index (inverted: lower competition = higher score)
-    raw_comp = 1 - (comp_index / 100)
-    comp_score = raw_comp * w * co["competition_index_pct"]
+    # Market validation (high competition = proven, lucrative market)
+    if comp_index >= 70:
+        raw_comp = 1.0
+    elif comp_index >= 40:
+        raw_comp = 0.7
+    elif comp_index >= 15:
+        raw_comp = 0.4
+    else:
+        raw_comp = 0.15  # Unproven market — risky for physical office
+    comp_score = raw_comp * w * sf["market_validation_pct"]
 
     # Same-brand distance
     if same_brand_dist < 15:
@@ -118,7 +125,7 @@ def calc_competitive_opportunity(
         raw_dist = 1.0
     else:
         raw_dist = 0.8  # isolation penalty
-    same_brand_score = raw_dist * w * co["same_brand_distance_pct"]
+    same_brand_score = raw_dist * w * sf["same_brand_distance_pct"]
 
     # Sister brand overlap
     if sister_brands == 0:
@@ -127,7 +134,7 @@ def calc_competitive_opportunity(
         raw_sister = 0.7
     else:
         raw_sister = 0.4
-    sister_score = raw_sister * w * co["sister_overlap_pct"]
+    sister_score = raw_sister * w * sf["sister_overlap_pct"]
 
     return comp_score + same_brand_score + sister_score
 
@@ -185,13 +192,13 @@ def calc_composite_score(
     sister_brands: int,
     config: dict,
 ) -> float:
-    """Composite score = market_demand + market_quality + competitive_opportunity.
+    """Composite score = market_demand + market_quality + strategic_fit.
 
     Portfolio gap is a separate overlay, not included here.
     """
     demand = calc_market_demand(brand_vol, max_brand_vol, population, max_brand_pop, config)
     quality = calc_market_quality(owner_pct, income, year_built, config)
-    opportunity = calc_competitive_opportunity(comp_index, same_brand_dist, sister_brands, config)
+    opportunity = calc_strategic_fit(comp_index, same_brand_dist, sister_brands, config)
     return demand + quality + opportunity
 
 
@@ -217,7 +224,7 @@ def _perturb_weights(config: dict, target_weight: str, delta: int) -> dict:
     import copy
     new_config = copy.deepcopy(config)
     weights = new_config["weights"]
-    weight_names = ["market_demand", "market_quality", "competitive_opportunity"]
+    weight_names = ["market_demand", "market_quality", "strategic_fit"]
 
     original = weights[target_weight]
     new_val = max(0, original + delta)
@@ -263,7 +270,7 @@ def calc_sensitivity_flags(cities: list[dict], config: dict) -> list[bool]:
     baseline_scores = _score_all(config)
     baseline_ranks = _rank_scores(baseline_scores)
 
-    weight_names = ["market_demand", "market_quality", "competitive_opportunity"]
+    weight_names = ["market_demand", "market_quality", "strategic_fit"]
     sensitive = [False] * len(cities)
 
     for target_weight in weight_names:
@@ -589,7 +596,7 @@ def main() -> None:
 
     brand_locations = _collect_brand_locations(data)
     all_offices = _collect_all_offices(brand_locations)
-    sister_radius = config["competitive_opportunity"]["sister_brand_radius_mi"]
+    sister_radius = config["strategic_fit"]["sister_brand_radius_mi"]
 
     by_brand: dict[str, list[dict]] = defaultdict(list)
     for row in data:
@@ -653,7 +660,7 @@ def main() -> None:
                 r["owner_occupied_pct"], r["median_household_income"],
                 r["median_year_built"], config,
             )
-            opportunity_score = calc_competitive_opportunity(
+            opportunity_score = calc_strategic_fit(
                 comp_index, same_dist, sisters, config,
             )
 
@@ -674,7 +681,7 @@ def main() -> None:
                 "composite_score": round(composite, 2),
                 "market_demand_score": round(demand_score, 2),
                 "market_quality_score": round(quality_score, 2),
-                "competitive_opportunity_score": round(opportunity_score, 2),
+                "strategic_fit_score": round(opportunity_score, 2),
                 "portfolio_gap_score": round(portfolio_gap, 2),
                 "search_vol_total": (
                     r["foundation_vol"] + r["basement_vol"]

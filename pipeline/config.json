@@ -2,7 +2,7 @@
   "weights": {
     "market_demand": 45,
     "market_quality": 30,
-    "competitive_opportunity": 25
+    "strategic_fit": 25
   },
   "market_demand": {
     "search_volume_pct": 0.70,
@@ -20,8 +20,8 @@
     "year_built_baseline": 2025,
     "year_built_oldest": 1940
   },
-  "competitive_opportunity": {
-    "competition_index_pct": 0.50,
+  "strategic_fit": {
+    "market_validation_pct": 0.50,
     "same_brand_distance_pct": 0.30,
     "sister_overlap_pct": 0.20,
     "sister_brand_radius_mi": 50
