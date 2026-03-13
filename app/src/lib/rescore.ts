@@ -1,10 +1,12 @@
 import type { Recommendation, ScoringConfig, Brand } from './types';
 import { calcCompositeScore, calcPortfolioGap, calcStrategicFit, haversine } from './scoring';
+import type { CompetitionMode } from './scoring';
 
 export function rescoreRecommendations(
   recs: readonly Recommendation[],
   config: ScoringConfig,
   portfolioGapEnabled: boolean,
+  competitionMode: CompetitionMode = 'validation',
 ): Recommendation[] {
   const maxBrandVol = recs.reduce((max, r) => Math.max(max, r.search_vol_total), 0);
   const maxBrandPop = recs.reduce((max, r) => Math.max(max, r.population), 0);
@@ -22,6 +24,7 @@ export function rescoreRecommendations(
       sameBrandDist: rec.same_brand_distance_mi ?? 999,
       sisterBrands: rec.sister_brands_nearby,
       config,
+      competitionMode,
     });
 
     const finalScore = portfolioGapEnabled
@@ -41,6 +44,7 @@ export function rescoreWithOfficeToggle(
   portfolioGapEnabled: boolean,
   brand: Brand,
   activeOffices: Set<string>,
+  competitionMode: CompetitionMode = 'validation',
 ): Recommendation[] {
   const activeLocations = brand.existing_locations.filter((loc) =>
     activeOffices.has(loc.city_key)
@@ -50,7 +54,7 @@ export function rescoreWithOfficeToggle(
   const allActive = activeLocations.length === allBrandLocations.length;
 
   if (allActive) {
-    return rescoreRecommendations(recs, config, portfolioGapEnabled);
+    return rescoreRecommendations(recs, config, portfolioGapEnabled, competitionMode);
   }
 
   const maxBrandVol = recs.reduce((max, r) => Math.max(max, r.search_vol_total), 0);
@@ -81,6 +85,7 @@ export function rescoreWithOfficeToggle(
       sameBrandDist ?? 999,
       sisterCount,
       config,
+      competitionMode,
     );
 
     const baseScore = calcCompositeScore({
@@ -95,6 +100,7 @@ export function rescoreWithOfficeToggle(
       sameBrandDist: sameBrandDist ?? 999,
       sisterBrands: sisterCount,
       config,
+      competitionMode,
     });
 
     const portfolioGapScore = crossBrandDist != null

@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import type { Recommendation, Brand, ScoringConfig, PlanItem } from '@/lib/types';
 import { rescoreRecommendations, rescoreWithOfficeToggle } from '@/lib/rescore';
+import type { CompetitionMode } from '@/lib/scoring';
 import BrandSelector from '@/components/BrandSelector';
 import BrandCard from '@/components/BrandCard';
 import RecommendationTable from '@/components/RecommendationTable';
@@ -53,6 +54,7 @@ export default function Home() {
   const [selectedBrandId, setSelectedBrandId] = useState<string | null>(null);
   const [currentConfig, setCurrentConfig] = useState<ScoringConfig>(defaultConfig);
   const [portfolioGapEnabled, setPortfolioGapEnabled] = useState(false);
+  const [competitionMode, setCompetitionMode] = useState<CompetitionMode>('validation');
   const [activeOfficesByBrand, setActiveOfficesByBrand] = useState<Map<string, Set<string>>>(() => {
     if (typeof window !== 'undefined') {
       try {
@@ -211,11 +213,11 @@ export default function Home() {
     );
 
     if (allActive) {
-      return rescoreRecommendations(raw, currentConfig, portfolioGapEnabled);
+      return rescoreRecommendations(raw, currentConfig, portfolioGapEnabled, competitionMode);
     }
 
-    return rescoreWithOfficeToggle(raw, currentConfig, portfolioGapEnabled, selectedBrand, activeOffices);
-  }, [selectedBrandId, selectedBrand, currentConfig, portfolioGapEnabled, activeOffices]);
+    return rescoreWithOfficeToggle(raw, currentConfig, portfolioGapEnabled, selectedBrand, activeOffices, competitionMode);
+  }, [selectedBrandId, selectedBrand, currentConfig, portfolioGapEnabled, activeOffices, competitionMode]);
 
   return (
     <div className="flex flex-col min-h-[calc(100vh-4rem)]">
@@ -228,8 +230,37 @@ export default function Home() {
           <div className="flex-1">
             <WeightSliders config={currentConfig} onChange={setCurrentConfig} />
           </div>
-          <div className="pt-2.5">
+          <div className="pt-2.5 flex flex-col gap-3">
             <PortfolioGapToggle enabled={portfolioGapEnabled} onToggle={setPortfolioGapEnabled} />
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-gray-700">Competition:</span>
+              <div className="flex items-center gap-0.5 border border-gray-200 rounded-lg p-0.5">
+                {([
+                  { value: 'validation' as CompetitionMode, label: 'Validation', tip: 'High competition = proven market' },
+                  { value: 'opportunity' as CompetitionMode, label: 'Opportunity', tip: 'Low competition = underserved market' },
+                ] as const).map(({ value, label, tip }) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setCompetitionMode(value)}
+                    title={tip}
+                    className="text-xs px-2.5 py-1 rounded-md transition-colors"
+                    style={
+                      competitionMode === value
+                        ? { backgroundColor: '#4C9784', color: 'white' }
+                        : { backgroundColor: 'transparent', color: '#6b7280' }
+                    }
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <span className="text-xs text-gray-400">
+                {competitionMode === 'validation'
+                  ? 'High = proven market'
+                  : 'Low = underserved market'}
+              </span>
+            </div>
           </div>
         </div>
 
@@ -274,6 +305,7 @@ export default function Home() {
             recommendationsByBrand={recommendationsByBrand}
             config={currentConfig}
             portfolioGapEnabled={portfolioGapEnabled}
+            competitionMode={competitionMode}
             onSelectBrand={handleBrandSelect}
             onAddToPlan={handleAddToPlan}
             plannedKeys={plannedKeys}

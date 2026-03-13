@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import type { Brand, Recommendation, ScoringConfig } from '@/lib/types';
+import type { CompetitionMode } from '@/lib/scoring';
 import { formatCityName } from '@/lib/explain';
 import { rescoreRecommendations } from '@/lib/rescore';
 import OfficeToggle from './OfficeToggle';
@@ -12,6 +13,7 @@ interface BrandPortfolioDashboardProps {
   recommendationsByBrand: Record<string, Recommendation[]>;
   config: ScoringConfig;
   portfolioGapEnabled: boolean;
+  competitionMode?: CompetitionMode;
   onSelectBrand: (brandId: string) => void;
   onAddToPlan?: (rec: Recommendation) => void;
   plannedKeys?: Set<string>;
@@ -39,6 +41,7 @@ export default function BrandPortfolioDashboard({
   plannedKeys,
   activeOfficesByBrand,
   onOfficeToggle,
+  competitionMode = 'validation',
 }: BrandPortfolioDashboardProps) {
   const [sortBy, setSortBy] = useState<SortOption>('name');
   const [viewMode, setViewMode] = useState<ViewMode>('cards');
@@ -46,12 +49,12 @@ export default function BrandPortfolioDashboard({
   const brandData = useMemo(() => {
     return brands.map((brand) => {
       const raw = recommendationsByBrand[brand.brand_id] ?? [];
-      const recs = rescoreRecommendations(raw, config, portfolioGapEnabled);
+      const recs = rescoreRecommendations(raw, config, portfolioGapEnabled, competitionMode);
       const top3 = recs.slice(0, 3);
       const topScore = top3.length > 0 ? top3[0].composite_score : 0;
       return { brand, recs, top3, topScore };
     });
-  }, [brands, recommendationsByBrand, config, portfolioGapEnabled]);
+  }, [brands, recommendationsByBrand, config, portfolioGapEnabled, competitionMode]);
 
   const sorted = useMemo(() => {
     const data = [...brandData];

@@ -63,20 +63,30 @@ export function calcMarketQuality(
   return ownerScore + incomeScore + yearScore;
 }
 
+export type CompetitionMode = 'validation' | 'opportunity';
+
 export function calcStrategicFit(
   compIndex: number,
   sameBrandDist: number,
   sisterBrands: number,
   config: ScoringConfig,
+  competitionMode: CompetitionMode = 'validation',
 ): number {
   const w = config.weights.strategic_fit;
   const sf = config.strategic_fit;
 
   let rawComp: number;
-  if (compIndex >= 70) rawComp = 1.0;
-  else if (compIndex >= 40) rawComp = 0.7;
-  else if (compIndex >= 15) rawComp = 0.4;
-  else rawComp = 0.15;
+  if (competitionMode === 'validation') {
+    if (compIndex >= 70) rawComp = 1.0;
+    else if (compIndex >= 40) rawComp = 0.7;
+    else if (compIndex >= 15) rawComp = 0.4;
+    else rawComp = 0.15;
+  } else {
+    if (compIndex < 15) rawComp = 1.0;
+    else if (compIndex < 40) rawComp = 0.7;
+    else if (compIndex < 70) rawComp = 0.4;
+    else rawComp = 0.15;
+  }
   const compScore = rawComp * w * sf.market_validation_pct;
 
   let rawDist: number;
@@ -157,6 +167,7 @@ interface CompositeScoreInput {
   sameBrandDist: number;
   sisterBrands: number;
   config: ScoringConfig;
+  competitionMode?: CompetitionMode;
 }
 
 export function calcCompositeScore(input: CompositeScoreInput): number {
@@ -164,11 +175,12 @@ export function calcCompositeScore(input: CompositeScoreInput): number {
     brandVol, maxBrandVol, population, maxBrandPop,
     ownerPct, income, yearBuilt,
     compIndex, sameBrandDist, sisterBrands, config,
+    competitionMode = 'validation',
   } = input;
 
   const demand = calcMarketDemand(brandVol, maxBrandVol, population, maxBrandPop, config);
   const quality = calcMarketQuality(ownerPct, income, yearBuilt, config);
-  const strategicFit = calcStrategicFit(compIndex, sameBrandDist, sisterBrands, config);
+  const strategicFit = calcStrategicFit(compIndex, sameBrandDist, sisterBrands, config, competitionMode);
 
   return demand + quality + strategicFit;
 }
