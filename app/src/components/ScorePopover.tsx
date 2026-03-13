@@ -209,7 +209,7 @@ export default function ScorePopover({ recommendation, config, children }: Score
           </div>
 
           <div className="font-semibold text-white/80 uppercase tracking-wider text-[10px] mt-2 mb-1">CRM</div>
-          {(rec.crm_leads > 0 || rec.crm_jobs > 0 || rec.crm_revenue > 0) ? (
+          {(rec.crm_leads > 0 || rec.crm_jobs > 0) ? (
             <>
               <div className="flex justify-between">
                 <span className="text-white/60">Leads</span>
@@ -218,10 +218,6 @@ export default function ScorePopover({ recommendation, config, children }: Score
               <div className="flex justify-between">
                 <span className="text-white/60">Jobs</span>
                 <span className="font-mono">{rec.crm_jobs}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-white/60">Revenue</span>
-                <span className="font-mono">{rec.crm_revenue > 0 ? `$${rec.crm_revenue.toLocaleString()}` : '--'}</span>
               </div>
             </>
           ) : (

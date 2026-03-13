@@ -83,14 +83,39 @@ def build_recommendations(recs: list[dict], cities_by_key: dict) -> dict:
     return by_brand
 
 
-def build_brands(brands_rows: list[dict]) -> list[dict]:
-    """Build brands array with parsed JSON fields."""
+def build_brands(
+    brands_rows: list[dict],
+    cities_by_key: dict,
+    census_by_key: dict,
+    search_by_key: dict,
+) -> list[dict]:
+    """Build brands array with parsed JSON fields and enriched locations."""
     result = []
     for b in brands_rows:
+        locations = parse_json_field(b.get("existing_locations")) or []
+        enriched_locations = []
+        for loc in locations:
+            city_key = loc.get("city_key", "")
+            city_data = cities_by_key.get(city_key, {})
+            census = census_by_key.get(city_key, {})
+            search = search_by_key.get(city_key, {})
+            enriched_locations.append({
+                **loc,
+                "population": city_data.get("population"),
+                "owner_occupied_pct": census.get("owner_occupied_pct"),
+                "median_household_income": census.get("median_household_income"),
+                "median_year_built": census.get("median_year_built"),
+                "search_vol_total": (
+                    (search.get("foundation_vol") or 0)
+                    + (search.get("basement_vol") or 0)
+                    + (search.get("crawlspace_vol") or 0)
+                    + (search.get("concrete_vol") or 0)
+                ),
+            })
         result.append({
             "brand_id": b["brand_id"],
             "display_name": b.get("display_name"),
-            "existing_locations": parse_json_field(b.get("existing_locations")),
+            "existing_locations": enriched_locations,
             "keyword_weights": parse_json_field(b.get("keyword_weights")),
             "confidence_tier": b.get("confidence_tier"),
             "investment_tier": b.get("investment_tier"),
@@ -132,12 +157,16 @@ def main() -> None:
     recs = fetch_all_rows(sb, "loc_scored_recommendations")
     cities = fetch_all_rows(sb, "loc_cities")
     brands = fetch_all_rows(sb, "loc_brands")
+    census = fetch_all_rows(sb, "loc_census_demographics")
+    search_vols = fetch_all_rows(sb, "loc_search_volumes")
 
     cities_by_key = {c["city_key"]: c for c in cities}
+    census_by_key = {c["city_key"]: c for c in census}
+    search_by_key = {s["city_key"]: s for s in search_vols}
 
     print("Export: building output files...")
     recommendations = build_recommendations(recs, cities_by_key)
-    brands_list = build_brands(brands)
+    brands_list = build_brands(brands, cities_by_key, census_by_key, search_by_key)
     config = build_config(recs)
 
     print(f"Export: writing to {OUTPUT_DIR}/")

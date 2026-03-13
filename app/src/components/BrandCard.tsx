@@ -62,10 +62,6 @@ export default function BrandCard({ brand }: BrandCardProps) {
             <span className="text-gray-500">Total Jobs:</span>{' '}
             <span className="font-semibold text-gray-800">{formatNumber(brand.total_jobs)}</span>
           </div>
-          <div>
-            <span className="text-gray-500">Total Revenue:</span>{' '}
-            <span className="font-semibold text-gray-800">{formatCurrency(brand.total_revenue)}</span>
-          </div>
         </div>
 
         {brand.existing_locations.length > 0 && (

@@ -47,6 +47,7 @@ function buildPlanItems(brand: Brand): PlanItem[] {
     lng: loc.lng,
     is_existing_office: true,
     recommendation: recByCity.get(loc.city_key),
+    location: loc,
   }));
 }
 

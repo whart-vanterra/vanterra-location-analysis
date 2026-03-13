@@ -41,12 +41,13 @@ function exportToCsv(plan: PlanItem[]) {
     'action', 'brand', 'city', 'state',
     'composite_score', 'market_demand_score', 'market_quality_score', 'strategic_fit_score', 'portfolio_gap_score',
     'search_vol_total', 'population', 'owner_occupied_pct', 'median_household_income', 'median_year_built',
-    'crm_badge', 'crm_leads', 'crm_jobs', 'crm_revenue',
+    'crm_badge', 'crm_leads', 'crm_jobs',
     'data_confidence', 'sensitivity_flag', 'lat', 'lng',
   ];
 
   const rows = plan.map((item) => {
     const rec = item.recommendation;
+    const loc = item.location;
     return [
       item.action,
       item.brand_id,
@@ -57,15 +58,14 @@ function exportToCsv(plan: PlanItem[]) {
       rec ? rec.market_quality_score.toFixed(1) : '',
       rec ? rec.strategic_fit_score.toFixed(1) : '',
       rec ? rec.portfolio_gap_score.toFixed(1) : '',
-      rec ? rec.search_vol_total.toString() : '',
-      rec ? rec.population.toString() : '',
-      rec ? rec.owner_occupied_pct.toString() : '',
-      rec ? rec.median_household_income.toString() : '',
-      rec ? rec.median_year_built.toString() : '',
+      rec ? rec.search_vol_total.toString() : loc?.search_vol_total != null ? loc.search_vol_total.toString() : '',
+      rec ? rec.population.toString() : loc?.population != null ? loc.population.toString() : '',
+      rec ? rec.owner_occupied_pct.toString() : loc?.owner_occupied_pct != null ? loc.owner_occupied_pct.toString() : '',
+      rec ? rec.median_household_income.toString() : loc?.median_household_income != null ? loc.median_household_income.toString() : '',
+      rec ? rec.median_year_built.toString() : loc?.median_year_built != null ? loc.median_year_built.toString() : '',
       rec ? (rec.crm_badge ?? '') : '',
       rec ? rec.crm_leads.toString() : '',
       rec ? rec.crm_jobs.toString() : '',
-      rec ? rec.crm_revenue.toString() : '',
       rec ? rec.data_confidence : '',
       rec ? (rec.sensitivity_flag ? 'YES' : 'NO') : '',
       item.lat.toString(),

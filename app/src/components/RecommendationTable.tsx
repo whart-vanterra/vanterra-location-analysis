@@ -183,7 +183,7 @@ function DetailRow({ rec, config, colSpan }: { rec: Recommendation; config: Scor
               </div>
 
               <div className="font-semibold text-gray-900 mt-3 mb-1.5">CRM Performance</div>
-              {(rec.crm_leads > 0 || rec.crm_jobs > 0 || rec.crm_revenue > 0) ? (
+              {(rec.crm_leads > 0 || rec.crm_jobs > 0) ? (
                 <div className="space-y-1 text-gray-600">
                   <div className="flex justify-between">
                     <span>Leads</span>
@@ -192,12 +192,6 @@ function DetailRow({ rec, config, colSpan }: { rec: Recommendation; config: Scor
                   <div className="flex justify-between">
                     <span>Jobs</span>
                     <span className="font-mono font-medium text-gray-900">{rec.crm_jobs.toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Revenue</span>
-                    <span className="font-mono font-medium text-gray-900">
-                      {rec.crm_revenue > 0 ? `$${rec.crm_revenue.toLocaleString()}` : '—'}
-                    </span>
                   </div>
                 </div>
               ) : (

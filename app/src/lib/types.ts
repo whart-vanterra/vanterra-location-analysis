@@ -10,6 +10,7 @@ export interface PlanItem {
   lat: number;
   lng: number;
   recommendation?: Recommendation;
+  location?: BrandLocation;
   is_existing_office?: boolean;
 }
 
@@ -65,10 +66,23 @@ export interface Recommendation {
   canonical_composite?: number;
 }
 
+export interface BrandLocation {
+  city_key: string;
+  city: string;
+  state: string;
+  lat: number;
+  lng: number;
+  population?: number | null;
+  owner_occupied_pct?: number | null;
+  median_household_income?: number | null;
+  median_year_built?: number | null;
+  search_vol_total?: number | null;
+}
+
 export interface Brand {
   brand_id: string;
   display_name: string;
-  existing_locations: Array<{ city_key: string; city: string; state: string; lat: number; lng: number }>;
+  existing_locations: BrandLocation[];
   zip_count: number | null;
   total_leads: number;
   total_jobs: number;
