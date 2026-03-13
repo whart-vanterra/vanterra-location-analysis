@@ -1,3 +1,18 @@
+export type PlanAction = 'KEEP' | 'CLOSE' | 'ADD';
+
+export interface PlanItem {
+  action: PlanAction;
+  brand_id: string;
+  brand_name: string;
+  city_key: string;
+  city: string;
+  state: string;
+  lat: number;
+  lng: number;
+  recommendation?: Recommendation;
+  is_existing_office?: boolean;
+}
+
 export interface ScoringConfig {
   weights: { market_demand: number; market_quality: number; strategic_fit: number };
   market_demand: { search_volume_pct: number; population_pct: number; population_cap: number };

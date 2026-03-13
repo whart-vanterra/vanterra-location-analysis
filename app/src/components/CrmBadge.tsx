@@ -12,7 +12,7 @@ export default function CrmBadge({ badge }: CrmBadgeProps) {
 
   return (
     <span
-      className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold border ${styles}`}
+      className={`inline-flex items-center ml-1.5 px-1 py-px rounded-full text-[9px] font-semibold border ${styles}`}
     >
       {badge}
     </span>

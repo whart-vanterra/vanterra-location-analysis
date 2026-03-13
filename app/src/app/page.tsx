@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import type { Recommendation, Brand, ScoringConfig } from '@/lib/types';
+import { useState, useMemo, useEffect } from 'react';
+import type { Recommendation, Brand, ScoringConfig, PlanItem } from '@/lib/types';
 import { rescoreRecommendations, rescoreWithOfficeToggle } from '@/lib/rescore';
 import BrandSelector from '@/components/BrandSelector';
 import BrandCard from '@/components/BrandCard';
@@ -9,7 +9,7 @@ import RecommendationTable from '@/components/RecommendationTable';
 import WeightSliders from '@/components/WeightSliders';
 import PortfolioGapToggle from '@/components/PortfolioGapToggle';
 import OfficeToggle from '@/components/OfficeToggle';
-import ExpansionPlanner from '@/components/ExpansionPlanner';
+import LocationPlanner from '@/components/LocationPlanner';
 import BrandPortfolioDashboard from '@/components/BrandPortfolioDashboard';
 import MethodologyPanel from '@/components/MethodologyPanel';
 
@@ -21,59 +21,183 @@ const brands = brandsData as unknown as Brand[];
 const defaultConfig = configData as unknown as ScoringConfig;
 const recommendationsByBrand = recommendationsData as unknown as Record<string, Recommendation[]>;
 
+const DEFAULT_CLOSED: ReadonlySet<string> = new Set([
+  'SB-golden valley|mn',
+  'SB-saint louis park|mn',
+  '58-TN-chattanooga|tn',
+  'DC-east providence|ri',
+]);
+
+function isDefaultClosed(brandId: string, cityKey: string): boolean {
+  return DEFAULT_CLOSED.has(`${brandId}-${cityKey}`);
+}
+
+function buildPlanItems(brand: Brand): PlanItem[] {
+  return brand.existing_locations.map((loc) => ({
+    action: isDefaultClosed(brand.brand_id, loc.city_key) ? 'CLOSE' as const : 'KEEP' as const,
+    brand_id: brand.brand_id,
+    brand_name: brand.display_name,
+    city_key: loc.city_key,
+    city: loc.city,
+    state: loc.state,
+    lat: loc.lat,
+    lng: loc.lng,
+    is_existing_office: true,
+  }));
+}
+
 export default function Home() {
   const [selectedBrandId, setSelectedBrandId] = useState<string | null>(null);
   const [currentConfig, setCurrentConfig] = useState<ScoringConfig>(defaultConfig);
   const [portfolioGapEnabled, setPortfolioGapEnabled] = useState(false);
-  const [activeOffices, setActiveOffices] = useState<Set<string>>(new Set());
-  const [expansionPlan, setExpansionPlan] = useState<Recommendation[]>([]);
+  const [activeOfficesByBrand, setActiveOfficesByBrand] = useState<Map<string, Set<string>>>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('activeOfficesByBrand');
+        if (saved) {
+          const parsed = JSON.parse(saved) as Record<string, string[]>;
+          const map = new Map<string, Set<string>>();
+          for (const [brandId, keys] of Object.entries(parsed)) {
+            map.set(brandId, new Set(keys));
+          }
+          return map;
+        }
+      } catch { /* ignore */ }
+    }
+    const map = new Map<string, Set<string>>();
+    for (const brand of brands) {
+      map.set(
+        brand.brand_id,
+        new Set(
+          brand.existing_locations
+            .filter((l) => !isDefaultClosed(brand.brand_id, l.city_key))
+            .map((l) => l.city_key)
+        )
+      );
+    }
+    return map;
+  });
+  const [locationPlan, setLocationPlan] = useState<PlanItem[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('locationPlan');
+        if (saved) return JSON.parse(saved) as PlanItem[];
+      } catch { /* ignore */ }
+    }
+    return brands.flatMap(buildPlanItems);
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('locationPlan', JSON.stringify(locationPlan));
+    } catch { /* quota exceeded */ }
+  }, [locationPlan]);
+
+  useEffect(() => {
+    try {
+      const serializable: Record<string, string[]> = {};
+      activeOfficesByBrand.forEach((set, brandId) => {
+        serializable[brandId] = Array.from(set);
+      });
+      localStorage.setItem('activeOfficesByBrand', JSON.stringify(serializable));
+    } catch { /* quota exceeded */ }
+  }, [activeOfficesByBrand]);
 
   const selectedBrand = useMemo(
     () => brands.find((b) => b.brand_id === selectedBrandId) ?? null,
     [selectedBrandId]
   );
 
+  const activeOffices = useMemo(() => {
+    if (!selectedBrandId) return new Set<string>();
+    return activeOfficesByBrand.get(selectedBrandId) ?? new Set<string>();
+  }, [selectedBrandId, activeOfficesByBrand]);
+
   function handleBrandSelect(brandId: string | null) {
     setSelectedBrandId(brandId);
-    if (brandId) {
-      const brand = brands.find((b) => b.brand_id === brandId);
-      setActiveOffices(new Set(brand?.existing_locations.map((l) => l.city_key) ?? []));
-    } else {
-      setActiveOffices(new Set());
-    }
   }
 
-  function handleOfficeToggle(cityKey: string) {
-    setActiveOffices((prev) => {
-      const next = new Set(prev);
-      if (next.has(cityKey)) {
-        next.delete(cityKey);
+  function handleOfficeToggle(brandId: string, cityKey: string) {
+    setActiveOfficesByBrand((prev) => {
+      const prevSet = prev.get(brandId) ?? new Set<string>();
+      const nextSet = new Set(prevSet);
+      if (nextSet.has(cityKey)) {
+        nextSet.delete(cityKey);
       } else {
-        next.add(cityKey);
+        nextSet.add(cityKey);
       }
-      return next;
+      return new Map(prev).set(brandId, nextSet);
+    });
+
+    setLocationPlan((prev) => {
+      const isCurrentlyActive = (activeOfficesByBrand.get(brandId) ?? new Set()).has(cityKey);
+      const newAction: 'KEEP' | 'CLOSE' = isCurrentlyActive ? 'CLOSE' : 'KEEP';
+      return prev.map((item) =>
+        item.brand_id === brandId && item.city_key === cityKey && item.is_existing_office
+          ? { ...item, action: newAction }
+          : item
+      );
     });
   }
 
   function handleAddToPlan(rec: Recommendation) {
-    setExpansionPlan((prev) => {
-      const exists = prev.some((p) => p.city_key === rec.city_key && p.brand_id === rec.brand_id);
+    setLocationPlan((prev) => {
+      const exists = prev.some(
+        (p) => p.city_key === rec.city_key && p.brand_id === rec.brand_id && p.action === 'ADD'
+      );
       if (exists) return prev;
-      return [...prev, rec];
+      const brand = brands.find((b) => b.brand_id === rec.brand_id);
+      const newItem: PlanItem = {
+        action: 'ADD',
+        brand_id: rec.brand_id,
+        brand_name: brand?.display_name ?? rec.brand_id,
+        city_key: rec.city_key,
+        city: rec.city,
+        state: rec.state,
+        lat: rec.lat,
+        lng: rec.lng,
+        recommendation: rec,
+      };
+      return [...prev, newItem];
     });
   }
 
-  function handleRemoveFromPlan(cityKey: string, brandId: string) {
-    setExpansionPlan((prev) => prev.filter((p) => !(p.city_key === cityKey && p.brand_id === brandId)));
+  function handleChangePlanAction(brandId: string, cityKey: string, action: 'KEEP' | 'CLOSE') {
+    setLocationPlan((prev) =>
+      prev.map((item) =>
+        item.brand_id === brandId && item.city_key === cityKey && item.is_existing_office
+          ? { ...item, action }
+          : item
+      )
+    );
+
+    setActiveOfficesByBrand((prev) => {
+      const prevSet = prev.get(brandId) ?? new Set<string>();
+      const nextSet = new Set(prevSet);
+      if (action === 'CLOSE') {
+        nextSet.delete(cityKey);
+      } else {
+        nextSet.add(cityKey);
+      }
+      return new Map(prev).set(brandId, nextSet);
+    });
   }
 
-  function handleClearPlan() {
-    setExpansionPlan([]);
+  function handleRemoveAdd(brandId: string, cityKey: string) {
+    setLocationPlan((prev) =>
+      prev.filter((p) => !(p.brand_id === brandId && p.city_key === cityKey && p.action === 'ADD'))
+    );
+  }
+
+  function handleClearAdds() {
+    setLocationPlan((prev) => prev.filter((p) => p.action !== 'ADD'));
   }
 
   const plannedKeys = useMemo(() => {
-    return new Set(expansionPlan.map((p) => `${p.brand_id}-${p.city_key}`));
-  }, [expansionPlan]);
+    return new Set(
+      locationPlan.filter((p) => p.action === 'ADD').map((p) => `${p.brand_id}-${p.city_key}`)
+    );
+  }, [locationPlan]);
 
   const selectedRecommendations = useMemo(() => {
     if (!selectedBrandId || !selectedBrand) return [];
@@ -97,12 +221,13 @@ export default function Home() {
           <MethodologyPanel />
         </div>
 
-        <div className="mb-4">
-          <WeightSliders config={currentConfig} onChange={setCurrentConfig} />
-        </div>
-
-        <div className="mb-4">
-          <PortfolioGapToggle enabled={portfolioGapEnabled} onToggle={setPortfolioGapEnabled} />
+        <div className="mb-4 flex items-start gap-4">
+          <div className="flex-1">
+            <WeightSliders config={currentConfig} onChange={setCurrentConfig} />
+          </div>
+          <div className="pt-2.5">
+            <PortfolioGapToggle enabled={portfolioGapEnabled} onToggle={setPortfolioGapEnabled} />
+          </div>
         </div>
 
         <div className="mb-6">
@@ -123,7 +248,7 @@ export default function Home() {
               <OfficeToggle
                 locations={selectedBrand.existing_locations}
                 activeLocations={activeOffices}
-                onToggle={handleOfficeToggle}
+                onToggle={(cityKey) => handleOfficeToggle(selectedBrand.brand_id, cityKey)}
               />
             </div>
             <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-4">
@@ -147,15 +272,20 @@ export default function Home() {
             config={currentConfig}
             portfolioGapEnabled={portfolioGapEnabled}
             onSelectBrand={handleBrandSelect}
+            onAddToPlan={handleAddToPlan}
+            plannedKeys={plannedKeys}
+            activeOfficesByBrand={activeOfficesByBrand}
+            onOfficeToggle={handleOfficeToggle}
           />
         )}
       </div>
 
       <div className="sticky bottom-0 z-20">
-        <ExpansionPlanner
-          plan={expansionPlan}
-          onRemove={handleRemoveFromPlan}
-          onClearAll={handleClearPlan}
+        <LocationPlanner
+          plan={locationPlan}
+          onChangeAction={handleChangePlanAction}
+          onRemoveAdd={handleRemoveAdd}
+          onClearAdds={handleClearAdds}
         />
       </div>
     </div>

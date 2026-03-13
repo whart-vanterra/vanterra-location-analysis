@@ -4,6 +4,8 @@ import { useState, useMemo } from 'react';
 import type { Brand, Recommendation, ScoringConfig } from '@/lib/types';
 import { formatCityName } from '@/lib/explain';
 import { rescoreRecommendations } from '@/lib/rescore';
+import OfficeToggle from './OfficeToggle';
+import RecommendationTable from './RecommendationTable';
 
 interface BrandPortfolioDashboardProps {
   brands: Brand[];
@@ -11,9 +13,14 @@ interface BrandPortfolioDashboardProps {
   config: ScoringConfig;
   portfolioGapEnabled: boolean;
   onSelectBrand: (brandId: string) => void;
+  onAddToPlan?: (rec: Recommendation) => void;
+  plannedKeys?: Set<string>;
+  activeOfficesByBrand?: Map<string, Set<string>>;
+  onOfficeToggle?: (brandId: string, cityKey: string) => void;
 }
 
 type SortOption = 'name' | 'offices' | 'topScore';
+type ViewMode = 'cards' | 'list';
 
 const CONFIDENCE_COLORS: Record<string, { text: string; bg: string }> = {
   HIGH: { text: '#2d9e5f', bg: '#e8f7ef' },
@@ -28,8 +35,13 @@ export default function BrandPortfolioDashboard({
   config,
   portfolioGapEnabled,
   onSelectBrand,
+  onAddToPlan,
+  plannedKeys,
+  activeOfficesByBrand,
+  onOfficeToggle,
 }: BrandPortfolioDashboardProps) {
   const [sortBy, setSortBy] = useState<SortOption>('name');
+  const [viewMode, setViewMode] = useState<ViewMode>('cards');
 
   const brandData = useMemo(() => {
     return brands.map((brand) => {
@@ -63,104 +75,191 @@ export default function BrandPortfolioDashboard({
         <div>
           <h2 className="text-lg font-semibold text-gray-900">Brand Portfolio</h2>
           <p className="text-sm text-gray-500">
-            Click a brand card to see full recommendations.
+            {viewMode === 'cards' ? 'Click a brand card to see full recommendations.' : 'Scroll through all brands and their top markets.'}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-gray-500">Sort by:</span>
-          {([
-            { value: 'name', label: 'Name' },
-            { value: 'offices', label: 'Offices' },
-            { value: 'topScore', label: 'Top Score' },
-          ] as const).map(({ value, label }) => (
-            <button
-              key={value}
-              type="button"
-              onClick={() => setSortBy(value)}
-              className="text-xs px-2.5 py-1 rounded border transition-colors"
-              style={
-                sortBy === value
-                  ? { backgroundColor: '#4C9784', color: 'white', borderColor: '#4C9784' }
-                  : { backgroundColor: 'white', color: '#4b5563', borderColor: '#d1d5db' }
-              }
-              onMouseEnter={(e) => {
-                if (sortBy !== value) e.currentTarget.style.backgroundColor = '#f9fafb';
-              }}
-              onMouseLeave={(e) => {
-                if (sortBy !== value) e.currentTarget.style.backgroundColor = 'white';
-              }}
-            >
-              {label}
-            </button>
-          ))}
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1 border border-gray-200 rounded-lg p-0.5">
+            {([
+              { value: 'cards', label: 'Cards' },
+              { value: 'list', label: 'List' },
+            ] as const).map(({ value, label }) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setViewMode(value)}
+                className="text-xs px-3 py-1 rounded-md transition-colors"
+                style={
+                  viewMode === value
+                    ? { backgroundColor: '#4C9784', color: 'white' }
+                    : { backgroundColor: 'transparent', color: '#6b7280' }
+                }
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-gray-500">Sort by:</span>
+            {([
+              { value: 'name', label: 'Name' },
+              { value: 'offices', label: 'Offices' },
+              { value: 'topScore', label: 'Top Score' },
+            ] as const).map(({ value, label }) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setSortBy(value)}
+                className="text-xs px-2.5 py-1 rounded border transition-colors"
+                style={
+                  sortBy === value
+                    ? { backgroundColor: '#4C9784', color: 'white', borderColor: '#4C9784' }
+                    : { backgroundColor: 'white', color: '#4b5563', borderColor: '#d1d5db' }
+                }
+                onMouseEnter={(e) => {
+                  if (sortBy !== value) e.currentTarget.style.backgroundColor = '#f9fafb';
+                }}
+                onMouseLeave={(e) => {
+                  if (sortBy !== value) e.currentTarget.style.backgroundColor = 'white';
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {sorted.map(({ brand, recs, top3 }) => {
-          const colors = CONFIDENCE_COLORS[brand.confidence_tier] ?? CONFIDENCE_COLORS.LOW;
-          return (
-            <button
-              key={brand.brand_id}
-              type="button"
-              onClick={() => onSelectBrand(brand.brand_id)}
-              className="border border-gray-200 rounded-lg shadow-sm text-left transition-all overflow-hidden"
-              style={{ backgroundColor: 'white' }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = '#4C9784';
-                e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(76, 151, 132, 0.1)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = '#e5e7eb';
-                e.currentTarget.style.boxShadow = '0 1px 2px 0 rgba(0, 0, 0, 0.05)';
-              }}
-            >
-              <div className="px-4 py-2" style={{ backgroundColor: '#4C9784' }}>
-                <div className="flex items-start justify-between">
-                  <div>
-                    <div className="font-semibold text-white">{brand.display_name}</div>
-                    <div className="text-xs text-white/60 font-mono">{brand.brand_id}</div>
-                  </div>
-                  <span
-                    className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold"
-                    style={{ color: colors.text, backgroundColor: colors.bg }}
-                  >
-                    {brand.confidence_tier}
-                  </span>
-                </div>
-              </div>
-
-              <div className="p-4">
-                <div className="flex items-center gap-4 text-xs text-gray-500 mb-3">
-                  <span>{brand.existing_locations.length} offices</span>
-                  <span>{recs.length} markets</span>
-                </div>
-
-                {top3.length > 0 ? (
-                  <div className="space-y-1.5">
-                    <div className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">
-                      Top Markets
+      {viewMode === 'cards' && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {sorted.map(({ brand, recs, top3 }) => {
+            const colors = CONFIDENCE_COLORS[brand.confidence_tier] ?? CONFIDENCE_COLORS.LOW;
+            return (
+              <button
+                key={brand.brand_id}
+                type="button"
+                onClick={() => onSelectBrand(brand.brand_id)}
+                className="border border-gray-200 rounded-lg shadow-sm text-left transition-all overflow-hidden"
+                style={{ backgroundColor: 'white' }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = '#4C9784';
+                  e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(76, 151, 132, 0.1)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = '#e5e7eb';
+                  e.currentTarget.style.boxShadow = '0 1px 2px 0 rgba(0, 0, 0, 0.05)';
+                }}
+              >
+                <div className="px-4 py-2" style={{ backgroundColor: '#4C9784' }}>
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <div className="font-semibold text-white">{brand.display_name}</div>
+                      <div className="text-xs text-white/60 font-mono">{brand.brand_id}</div>
                     </div>
-                    {top3.map((rec, i) => (
-                      <div key={rec.city_key} className="flex items-center justify-between text-xs">
-                        <span className="text-gray-700 truncate">
-                          <span className="text-gray-400 font-mono mr-1">{i + 1}.</span>
-                          {formatCityName(rec.city_key)}, {rec.state}
-                        </span>
-                        <span className="font-mono font-semibold text-gray-900 ml-2">
-                          {rec.composite_score.toFixed(1)}
-                        </span>
-                      </div>
-                    ))}
+                    <span
+                      className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold"
+                      style={{ color: colors.text, backgroundColor: colors.bg }}
+                    >
+                      {brand.confidence_tier}
+                    </span>
                   </div>
-                ) : (
-                  <p className="text-xs text-gray-400">No recommendations</p>
-                )}
+                </div>
+
+                <div className="p-4">
+                  <div className="flex items-center gap-4 text-xs text-gray-500 mb-3">
+                    <span>{brand.existing_locations.length} offices</span>
+                    <span>{recs.length} markets</span>
+                  </div>
+
+                  {top3.length > 0 ? (
+                    <div className="space-y-1.5">
+                      <div className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">
+                        Top Markets
+                      </div>
+                      {top3.map((rec, i) => (
+                        <div key={rec.city_key} className="flex items-center justify-between text-xs">
+                          <span className="text-gray-700 truncate">
+                            <span className="text-gray-400 font-mono mr-1">{i + 1}.</span>
+                            {formatCityName(rec.city_key)}, {rec.state}
+                          </span>
+                          <span className="font-mono font-semibold text-gray-900 ml-2">
+                            {rec.composite_score.toFixed(1)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-gray-400">No recommendations</p>
+                  )}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {viewMode === 'list' && (
+        <div className="space-y-6">
+          {sorted.map(({ brand, recs }) => {
+            const colors = CONFIDENCE_COLORS[brand.confidence_tier] ?? CONFIDENCE_COLORS.LOW;
+            const activeOffices = activeOfficesByBrand?.get(brand.brand_id) ?? new Set(brand.existing_locations.map((l) => l.city_key));
+            const top10 = recs.slice(0, 10);
+            return (
+              <div key={brand.brand_id} className="border border-gray-200 rounded-lg shadow-sm overflow-hidden">
+                <div className="px-4 py-3 flex items-center justify-between" style={{ backgroundColor: '#4C9784' }}>
+                  <div className="flex items-center gap-3">
+                    <div>
+                      <span className="font-semibold text-white">{brand.display_name}</span>
+                      <span className="ml-2 text-xs text-white/60 font-mono">{brand.brand_id}</span>
+                    </div>
+                    <span
+                      className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold"
+                      style={{ color: colors.text, backgroundColor: colors.bg }}
+                    >
+                      {brand.confidence_tier}
+                    </span>
+                    <span className="text-xs text-white/70">{brand.existing_locations.length} offices</span>
+                    <span className="text-xs text-white/70">{recs.length} markets</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => onSelectBrand(brand.brand_id)}
+                    className="text-xs text-white/80 hover:text-white transition-colors underline underline-offset-2"
+                  >
+                    View all →
+                  </button>
+                </div>
+
+                <div className="bg-white px-4 py-3 border-b border-gray-100">
+                  <OfficeToggle
+                    locations={brand.existing_locations}
+                    activeLocations={activeOffices}
+                    onToggle={(cityKey) => onOfficeToggle?.(brand.brand_id, cityKey)}
+                  />
+                </div>
+
+                <div className="bg-white px-4 py-3">
+                  {top10.length > 0 ? (
+                    <>
+                      <div className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold mb-2">
+                        Top 10 Markets
+                      </div>
+                      <RecommendationTable
+                        recommendations={top10}
+                        config={config}
+                        onAddToPlan={onAddToPlan}
+                        plannedKeys={plannedKeys}
+                      />
+                    </>
+                  ) : (
+                    <p className="text-xs text-gray-400 py-2">No recommendations available.</p>
+                  )}
+                </div>
               </div>
-            </button>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
