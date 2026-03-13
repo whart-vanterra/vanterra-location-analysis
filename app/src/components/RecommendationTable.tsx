@@ -4,8 +4,6 @@ import { useState, useMemo } from 'react';
 import type { Recommendation, ScoringConfig } from '@/lib/types';
 import { formatCityName } from '@/lib/explain';
 import CrmBadge from './CrmBadge';
-import SensitivityIndicator from './SensitivityIndicator';
-import ScoreSparkline from './ScoreSparkline';
 
 interface RecommendationTableProps {
   recommendations: Recommendation[];
@@ -286,7 +284,7 @@ export default function RecommendationTable({
   }
 
   const hasFilters = minPopulation !== '' || minSearchVol !== '' || minScore !== '';
-  const colCount = 12 + (onAddToPlan ? 1 : 0);
+  const colCount = 10 + (onAddToPlan ? 1 : 0);
 
   return (
     <div>
@@ -344,9 +342,6 @@ export default function RecommendationTable({
           <tr className="border-b-2 border-gray-200" style={{ backgroundColor: '#f1f5f9' }}>
             <SortHeader label="Rank" col="rank" />
             <SortHeader label="City / State" col="city" />
-            <th className="px-2 py-2 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wider w-20">
-              Breakdown
-            </th>
             <SortHeader label="Score" col="composite_score" />
             <SortHeader label="Demand" col="market_demand_score" />
             <SortHeader label="Quality" col="market_quality_score" />
@@ -400,16 +395,6 @@ export default function RecommendationTable({
                   <td className="px-2 py-2">
                     <span className="font-medium text-gray-900">{cityName}, {rec.state}</span>
                     <CrmBadge badge={rec.crm_badge} />
-                    <SensitivityIndicator sensitive={rec.sensitivity_flag} />
-                  </td>
-                  <td className="px-2 py-2">
-                    <div className="w-20">
-                      <ScoreSparkline
-                        demand={rec.market_demand_score}
-                        quality={rec.market_quality_score}
-                        strategicFit={rec.strategic_fit_score}
-                      />
-                    </div>
                   </td>
                   <td className="px-2 py-2">
                     <span style={{ color: scoreColor(rec.composite_score) }} className="font-bold">
