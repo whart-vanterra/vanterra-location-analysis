@@ -13,6 +13,7 @@ import OfficeToggle from '@/components/OfficeToggle';
 import LocationPlanner from '@/components/LocationPlanner';
 import BrandPortfolioDashboard from '@/components/BrandPortfolioDashboard';
 import MethodologyPanel from '@/components/MethodologyPanel';
+import RecommendationMap from '@/components/RecommendationMap';
 
 import recommendationsData from '@/data/recommendations.json';
 import brandsData from '@/data/brands.json';
@@ -53,9 +54,33 @@ function buildPlanItems(brand: Brand): PlanItem[] {
 
 export default function Home() {
   const [selectedBrandId, setSelectedBrandId] = useState<string | null>(null);
-  const [currentConfig, setCurrentConfig] = useState<ScoringConfig>(defaultConfig);
-  const [portfolioGapEnabled, setPortfolioGapEnabled] = useState(false);
-  const [competitionMode, setCompetitionMode] = useState<CompetitionMode>('validation');
+  const [currentConfig, setCurrentConfig] = useState<ScoringConfig>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('scoringConfig');
+        if (saved) return JSON.parse(saved) as ScoringConfig;
+      } catch { /* ignore */ }
+    }
+    return defaultConfig;
+  });
+  const [portfolioGapEnabled, setPortfolioGapEnabled] = useState(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('portfolioGapEnabled');
+        if (saved) return JSON.parse(saved) as boolean;
+      } catch { /* ignore */ }
+    }
+    return false;
+  });
+  const [competitionMode, setCompetitionMode] = useState<CompetitionMode>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('competitionMode');
+        if (saved) return saved as CompetitionMode;
+      } catch { /* ignore */ }
+    }
+    return 'validation';
+  });
   const [activeOfficesByBrand, setActiveOfficesByBrand] = useState<Map<string, Set<string>>>(() => {
     if (typeof window !== 'undefined') {
       try {
@@ -98,6 +123,18 @@ export default function Home() {
       localStorage.setItem('locationPlan', JSON.stringify(locationPlan));
     } catch { /* quota exceeded */ }
   }, [locationPlan]);
+
+  useEffect(() => {
+    try { localStorage.setItem('scoringConfig', JSON.stringify(currentConfig)); } catch { /* */ }
+  }, [currentConfig]);
+
+  useEffect(() => {
+    try { localStorage.setItem('portfolioGapEnabled', JSON.stringify(portfolioGapEnabled)); } catch { /* */ }
+  }, [portfolioGapEnabled]);
+
+  useEffect(() => {
+    try { localStorage.setItem('competitionMode', competitionMode); } catch { /* */ }
+  }, [competitionMode]);
 
   useEffect(() => {
     try {
@@ -275,6 +312,16 @@ export default function Home() {
             onSelect={handleBrandSelect}
           />
         </div>
+
+        <RecommendationMap
+          brands={brands}
+          recommendationsByBrand={recommendationsByBrand}
+          activeOfficesByBrand={activeOfficesByBrand}
+          plannedKeys={plannedKeys}
+          onOfficeToggle={handleOfficeToggle}
+          onAddToPlan={handleAddToPlan}
+          onRemoveAdd={handleRemoveAdd}
+        />
 
         {selectedBrand && (
           <div>
