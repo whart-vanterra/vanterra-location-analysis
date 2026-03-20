@@ -4,6 +4,8 @@ import { useRef, useEffect, useState, useCallback } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import type { Brand, Recommendation } from '@/lib/types';
+import { useCountyIncomeLayer } from './map/useCountyIncomeLayer';
+import { LEGEND_ITEMS } from './map/countyIncomeConstants';
 
 interface CompetitorCity {
   city: string;
@@ -74,6 +76,13 @@ interface Props {
   onAddToPlan: (rec: Recommendation) => void;
   onRemoveAdd: (brandId: string, cityKey: string) => void;
   onDropPin?: (lat: number, lng: number) => void;
+  /** Lock into fullscreen mode (no toggle, fills viewport) */
+  forceFullscreen?: boolean;
+  /** Override default toggle states */
+  defaultSearchVolView?: boolean;
+  defaultIncomeWeighted?: boolean;
+  defaultShowCountyIncome?: boolean;
+  defaultShowCompetitors?: boolean;
 }
 
 export default function RecommendationMap({
@@ -86,6 +95,11 @@ export default function RecommendationMap({
   onAddToPlan,
   onRemoveAdd,
   onDropPin,
+  forceFullscreen = false,
+  defaultSearchVolView = false,
+  defaultIncomeWeighted = false,
+  defaultShowCountyIncome = false,
+  defaultShowCompetitors = false,
 }: Props) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
@@ -93,7 +107,7 @@ export default function RecommendationMap({
   const radiusFeaturesRef = useRef<GeoJSON.Feature[]>([]);
   const prevFilterRef = useRef<string | null>(null);
   const [collapsed, setCollapsed] = useState(false);
-  const [fullscreen, setFullscreen] = useState(false);
+  const [fullscreen, setFullscreen] = useState(forceFullscreen);
   const [filterBrand, setFilterBrand] = useState('all');
   const [showOffices, setShowOffices] = useState(true);
   const [radiusMiles, setRadiusMiles] = useState(() => {
@@ -103,14 +117,18 @@ export default function RecommendationMap({
     }
     return 20;
   });
-  const [showCompetitors, setShowCompetitors] = useState(false);
+  const [showCompetitors, setShowCompetitors] = useState(defaultShowCompetitors);
   const [dropPinMode, setDropPinMode] = useState(false);
-  const [searchVolView, setSearchVolView] = useState(false);
-  const [incomeWeighted, setIncomeWeighted] = useState(false);
+  const [searchVolView, setSearchVolView] = useState(defaultSearchVolView);
+  const [incomeWeighted, setIncomeWeighted] = useState(defaultIncomeWeighted);
+  const [showCountyIncome, setShowCountyIncome] = useState(defaultShowCountyIncome);
   const competitorMarkersRef = useRef<mapboxgl.Marker[]>([]);
   const dropPinMarkersRef = useRef<mapboxgl.Marker[]>([]);
   const searchVolMarkersRef = useRef<mapboxgl.Marker[]>([]);
   const selectedCompRadiiRef = useRef<GeoJSON.Feature[]>([]);
+  const [mapReady, setMapReady] = useState(false);
+
+  useCountyIncomeLayer(mapRef, showCountyIncome, mapReady);
 
   useEffect(() => {
     try { localStorage.setItem('mapRadiusMiles', String(radiusMiles)); } catch { /* */ }
@@ -510,7 +528,7 @@ export default function RecommendationMap({
   useEffect(() => {
     if (!mapRef.current || !mapRef.current.loaded()) return;
     updateCompetitors();
-  }, [updateCompetitors]);
+  }, [updateCompetitors, mapReady]);
 
   // Search volume view — top 20 per state, brand-agnostic
   const updateSearchVolView = useCallback(() => {
@@ -607,7 +625,7 @@ export default function RecommendationMap({
     if (!map || !map.loaded()) return;
     updateSearchVolView();
     // Markers are rebuilt by addMarkers when searchVolView toggles
-  }, [updateSearchVolView, searchVolView]);
+  }, [updateSearchVolView, searchVolView, mapReady]);
 
   // Initialize map
   useEffect(() => {
@@ -687,6 +705,9 @@ export default function RecommendationMap({
         paint: { 'line-color': ['get', 'color'], 'line-opacity': 0.6, 'line-width': 2.5 },
       });
       addMarkers();
+      updateCompetitors();
+      updateSearchVolView();
+      setMapReady(true);
     });
 
     map.on('click', (e) => {
@@ -856,7 +877,11 @@ export default function RecommendationMap({
     addMarkers();
   }, [addMarkers]);
 
-  const mapHeight = fullscreen ? 'calc(100vh - 100px)' : '700px';
+  const mapHeight = forceFullscreen
+    ? 'calc(100vh - 56px)'
+    : fullscreen
+      ? 'calc(100vh - 100px)'
+      : '700px';
 
   useEffect(() => {
     if (mapRef.current) {
@@ -923,15 +948,17 @@ export default function RecommendationMap({
           Recommendation Map
         </h2>
         <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
-          <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={showOffices}
-              onChange={(e) => setShowOffices(e.target.checked)}
-              className="rounded"
-            />
+          <button
+            className={`text-xs px-2 py-1 border rounded-md ${
+              showOffices
+                ? 'border-teal-600 bg-teal-50 text-teal-700'
+                : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-100'
+            }`}
+            onClick={() => setShowOffices((p) => !p)}
+            title="Toggle existing office markers"
+          >
             Offices
-          </label>
+          </button>
           <button
             className={`text-xs px-2 py-1 border rounded-md ${
               searchVolView
@@ -941,7 +968,7 @@ export default function RecommendationMap({
             onClick={() => setSearchVolView((p) => !p)}
             title="Simple view: top 20 search volume cities per state"
           >
-            {searchVolView ? 'Exit Vol View' : 'Search Vol'}
+            Vol View
           </button>
           {searchVolView && (
             <button
@@ -953,19 +980,32 @@ export default function RecommendationMap({
               onClick={() => setIncomeWeighted((p) => !p)}
               title="Weight search volume by household income (vol × income factor)"
             >
-              {incomeWeighted ? '$ Weighted' : '$ Income'}
+              $ Weighted
             </button>
           )}
+          <button
+            className={`text-xs px-2 py-1 border rounded-md ${
+              showCountyIncome
+                ? 'border-blue-800 bg-blue-50 text-blue-800'
+                : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-100'
+            }`}
+            onClick={() => setShowCountyIncome((p) => !p)}
+            title="Toggle county-level median household income choropleth"
+          >
+            $ Income Map
+          </button>
           {competitorData && (
-            <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={showCompetitors}
-                onChange={(e) => setShowCompetitors(e.target.checked)}
-                className="rounded"
-              />
+            <button
+              className={`text-xs px-2 py-1 border rounded-md ${
+                showCompetitors
+                  ? 'border-red-500 bg-red-50 text-red-700'
+                  : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-100'
+              }`}
+              onClick={() => setShowCompetitors((p) => !p)}
+              title="Toggle competitor markers"
+            >
               Competitors
-            </label>
+            </button>
           )}
           <label className="flex items-center gap-1.5 text-xs text-gray-500">
             <span>{radiusMiles}mi</span>
@@ -1002,13 +1042,15 @@ export default function RecommendationMap({
           >
             📍 {dropPinMode ? 'Done' : 'Pin'}
           </button>
-          <button
-            className="text-xs px-2 py-1 border border-gray-200 rounded-md bg-white text-gray-700 hover:bg-gray-100"
-            onClick={() => setFullscreen((p) => !p)}
-            title={fullscreen ? 'Exit fullscreen' : 'Fullscreen'}
-          >
-            {fullscreen ? '⤓ Exit' : '⤢ Full'}
-          </button>
+          {!forceFullscreen && (
+            <button
+              className="text-xs px-2 py-1 border border-gray-200 rounded-md bg-white text-gray-700 hover:bg-gray-100"
+              onClick={() => setFullscreen((p) => !p)}
+              title={fullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+            >
+              {fullscreen ? '⤓ Exit' : '⤢ Full'}
+            </button>
+          )}
           <button
             className={`text-lg text-gray-400 transition-transform ${collapsed ? '-rotate-90' : ''}`}
             onClick={() => setCollapsed((p) => !p)}
@@ -1047,6 +1089,20 @@ export default function RecommendationMap({
           <span className="inline-block w-3 h-3 rounded-full" style={{ background: '#f59e0b', border: '2px solid #fff' }} /> Top in State
         </span>
       </div>
+      {showCountyIncome && (
+        <div className="flex items-center gap-3 px-5 py-2 border-t border-gray-200 text-xs text-gray-500">
+          <span className="font-semibold text-blue-800">County Income:</span>
+          {LEGEND_ITEMS.map((item) => (
+            <span key={item.label} className="flex items-center gap-1">
+              <span
+                className="inline-block w-3 h-3 rounded-sm border border-gray-300"
+                style={{ background: item.color }}
+              />
+              {item.label}
+            </span>
+          ))}
+        </div>
+      )}
       {searchVolView && incomeWeighted && (
         <div className="px-5 py-2 border-t border-gray-200 text-xs text-gray-500 leading-relaxed">
           <span className="font-semibold text-purple-700">Income Weighting:</span>{' '}
