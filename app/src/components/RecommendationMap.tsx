@@ -374,7 +374,14 @@ export default function RecommendationMap({
         src.setData({
           type: 'FeatureCollection',
           features: [
-            ...(zoom >= 6 && !searchVolView ? radiusFeatures : []),
+            ...(zoom >= 6
+              ? searchVolView
+                ? radiusFeatures.filter((f) => {
+                    const kind = (f.properties as Record<string, string>)?.kind;
+                    return kind === 'existing' || kind === 'planned';
+                  })
+                : radiusFeatures
+              : []),
             ...selectedCompRadiiRef.current,
           ],
         });
