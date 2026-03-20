@@ -234,6 +234,28 @@ export default function Home() {
     );
   }
 
+  function handleDropPin(lat: number, lng: number) {
+    const cityKey = `custom-${lat.toFixed(4)}-${lng.toFixed(4)}`;
+    const cityName = `Pin ${lat.toFixed(2)}°, ${lng.toFixed(2)}°`;
+    const selectedId = selectedBrandId ?? brands[0]?.brand_id ?? 'CUSTOM';
+    const brand = brands.find((b) => b.brand_id === selectedId);
+    setLocationPlan((prev) => {
+      const exists = prev.some((p) => p.city_key === cityKey);
+      if (exists) return prev;
+      const newItem: PlanItem = {
+        action: 'ADD',
+        brand_id: selectedId,
+        brand_name: brand?.display_name ?? selectedId,
+        city_key: cityKey,
+        city: cityName,
+        state: '',
+        lat,
+        lng,
+      };
+      return [...prev, newItem];
+    });
+  }
+
   function handleClearAdds() {
     setLocationPlan((prev) => prev.filter((p) => p.action !== 'ADD'));
   }
@@ -324,6 +346,7 @@ export default function Home() {
           onOfficeToggle={handleOfficeToggle}
           onAddToPlan={handleAddToPlan}
           onRemoveAdd={handleRemoveAdd}
+          onDropPin={handleDropPin}
         />
 
         {selectedBrand && (

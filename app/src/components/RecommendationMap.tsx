@@ -73,6 +73,7 @@ interface Props {
   onOfficeToggle: (brandId: string, cityKey: string) => void;
   onAddToPlan: (rec: Recommendation) => void;
   onRemoveAdd: (brandId: string, cityKey: string) => void;
+  onDropPin?: (lat: number, lng: number) => void;
 }
 
 export default function RecommendationMap({
@@ -84,6 +85,7 @@ export default function RecommendationMap({
   onOfficeToggle,
   onAddToPlan,
   onRemoveAdd,
+  onDropPin,
 }: Props) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
@@ -96,7 +98,12 @@ export default function RecommendationMap({
   const [showOffices, setShowOffices] = useState(true);
   const [radiusMiles, setRadiusMiles] = useState(20);
   const [showCompetitors, setShowCompetitors] = useState(false);
+  const [dropPinMode, setDropPinMode] = useState(false);
+  const [searchVolView, setSearchVolView] = useState(false);
   const competitorMarkersRef = useRef<mapboxgl.Marker[]>([]);
+  const dropPinMarkersRef = useRef<mapboxgl.Marker[]>([]);
+  const searchVolMarkersRef = useRef<mapboxgl.Marker[]>([]);
+  const selectedCompRadiiRef = useRef<GeoJSON.Feature[]>([]);
 
   const brandColorMap = useRef(
     Object.fromEntries(brands.map((b, i) => [b.brand_id, BRAND_COLORS[i % BRAND_COLORS.length]]))
@@ -107,16 +114,19 @@ export default function RecommendationMap({
     if (!map) return;
     const src = map.getSource('radius-highlight') as mapboxgl.GeoJSONSource | undefined;
     if (!src) return;
-    if (!markerId) {
-      src.setData({ type: 'FeatureCollection', features: [] });
-      return;
+
+    // Show only the hovered feature in highlight layer (nothing persistent here)
+    const features: GeoJSON.Feature[] = [];
+    if (markerId) {
+      const hovered = radiusFeaturesRef.current.find(
+        (f) => f.properties && (f.properties as Record<string, string>).id === markerId
+      );
+      if (hovered) features.push(hovered);
     }
-    const feature = radiusFeaturesRef.current.find(
-      (f) => f.properties && (f.properties as Record<string, string>).id === markerId
-    );
+
     src.setData({
       type: 'FeatureCollection',
-      features: feature ? [feature] : [],
+      features,
     });
   }, []);
 
@@ -222,6 +232,7 @@ export default function RecommendationMap({
             .setLngLat([loc.lng, loc.lat])
             .setPopup(popup)
             .addTo(map);
+          (marker as unknown as Record<string, string>)._markerKind = 'office';
           markersRef.current.push(marker);
           bounds.extend([loc.lng, loc.lat]);
           hasPoints = true;
@@ -328,6 +339,7 @@ export default function RecommendationMap({
           .setLngLat([rec.lng, rec.lat])
           .setPopup(popup)
           .addTo(map);
+        (marker as unknown as Record<string, string>)._markerKind = inPlan ? 'planned' : 'recommendation';
         markersRef.current.push(marker);
         bounds.extend([rec.lng, rec.lat]);
         hasPoints = true;
@@ -359,14 +371,17 @@ export default function RecommendationMap({
         const zoom = map.getZoom();
         src.setData({
           type: 'FeatureCollection',
-          features: zoom >= 6 ? radiusFeatures : [],
+          features: [
+            ...(zoom >= 6 && !searchVolView ? radiusFeatures : []),
+            ...selectedCompRadiiRef.current,
+          ],
         });
       };
       updateRadius();
       map.off('zoom', updateRadius);
       map.on('zoom', updateRadius);
     }
-  }, [brands, recommendationsByBrand, activeOfficesByBrand, plannedKeys, filterBrand, showOffices, radiusMiles, brandColorMap, clearMarkers, highlightRadius, onOfficeToggle, onAddToPlan, onRemoveAdd]);
+  }, [brands, recommendationsByBrand, activeOfficesByBrand, plannedKeys, filterBrand, showOffices, radiusMiles, searchVolView, brandColorMap, clearMarkers, highlightRadius, onOfficeToggle, onAddToPlan, onRemoveAdd]);
 
   // Competitor markers
   const updateCompetitors = useCallback(() => {
@@ -375,20 +390,46 @@ export default function RecommendationMap({
     const map = mapRef.current;
     if (!map || !showCompetitors || !competitorData) return;
 
+    // Find top competitor by reviews per state
+    const topByState: Record<string, { place_id: string; reviews: number }> = {};
     Object.values(competitorData).forEach((cityData) => {
       cityData.competitors.forEach((comp) => {
         if (!comp.lat || !comp.lng || comp.business_status !== 'OPERATIONAL') return;
+        const st = cityData.state;
+        const reviews = comp.user_ratings_total || 0;
+        if (!topByState[st] || reviews > topByState[st].reviews) {
+          topByState[st] = { place_id: comp.place_id, reviews };
+        }
+      });
+    });
+    const topPlaceIds = new Set(Object.values(topByState).map((t) => t.place_id));
+
+    Object.values(competitorData).forEach((cityData) => {
+      cityData.competitors.forEach((comp) => {
+        if (!comp.lat || !comp.lng || comp.business_status !== 'OPERATIONAL') return;
+        const reviews = comp.user_ratings_total || 0;
+        const isTopInState = topPlaceIds.has(comp.place_id);
+        const size = isTopInState ? 14 : reviews > 500 ? 10 : reviews > 100 ? 8 : 6;
+        const bg = isTopInState ? '#f59e0b' : '#dc2626';
+        const border = isTopInState ? '2.5px solid #fff' : '1.5px solid #fff';
 
         const el = document.createElement('div');
-        el.style.cssText = 'width:8px;height:8px;border-radius:50%;background:#dc2626;border:1.5px solid #fff;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,0.3);';
+        el.style.cssText = `width:${size}px;height:${size}px;border-radius:50%;background:${bg};border:${border};cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,0.3);${isTopInState ? 'z-index:10;' : ''}`;
 
         const popupDiv = document.createElement('div');
         popupDiv.style.cssText = 'font-family:-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;line-height:1.5;max-width:240px';
 
         const titleEl = document.createElement('div');
-        titleEl.style.cssText = 'font-weight:700;font-size:13px;margin-bottom:2px;color:#dc2626';
+        titleEl.style.cssText = `font-weight:700;font-size:13px;margin-bottom:2px;color:${isTopInState ? '#f59e0b' : '#dc2626'}`;
         titleEl.textContent = comp.name;
         popupDiv.appendChild(titleEl);
+
+        if (isTopInState) {
+          const badgeEl = document.createElement('div');
+          badgeEl.style.cssText = 'display:inline-block;font-size:10px;font-weight:700;color:#92400e;background:#fef3c7;padding:1px 6px;border-radius:4px;margin-bottom:4px';
+          badgeEl.textContent = `\u2B50 #1 in ${cityData.state} by reviews`;
+          popupDiv.appendChild(badgeEl);
+        }
 
         const addrEl = document.createElement('div');
         addrEl.style.cssText = 'font-size:11px;color:#6b7280;margin-bottom:4px';
@@ -409,6 +450,33 @@ export default function RecommendationMap({
           popupDiv.appendChild(ratingEl);
         }
 
+        // Click to toggle radius
+        el.addEventListener('click', () => {
+          const compId = `comp-${comp.place_id}`;
+          const isSame = selectedCompRadiiRef.current.length === 1
+            && selectedCompRadiiRef.current[0].properties
+            && (selectedCompRadiiRef.current[0].properties as Record<string, string>).id === compId;
+          if (isSame) {
+            selectedCompRadiiRef.current = [];
+          } else {
+            selectedCompRadiiRef.current = [{
+              type: 'Feature',
+              properties: { color: isTopInState ? '#f59e0b' : '#dc2626', kind: 'existing', id: compId },
+              geometry: { type: 'Polygon', coordinates: [makeCircleCoords(comp.lng, comp.lat, radiusMiles)] },
+            }];
+          }
+          // Merge into main radius source
+          const mainSrc = map.getSource('radius-circles') as mapboxgl.GeoJSONSource | undefined;
+          if (mainSrc) {
+            const zoom = map.getZoom();
+            const base = zoom >= 6 ? radiusFeaturesRef.current : [];
+            mainSrc.setData({
+              type: 'FeatureCollection',
+              features: [...base, ...selectedCompRadiiRef.current],
+            });
+          }
+        });
+
         const popup = new mapboxgl.Popup({ offset: 8, closeButton: false, maxWidth: '260px' }).setDOMContent(popupDiv);
         const marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
           .setLngLat([comp.lng, comp.lat])
@@ -417,12 +485,98 @@ export default function RecommendationMap({
         competitorMarkersRef.current.push(marker);
       });
     });
-  }, [showCompetitors, competitorData]);
+  }, [showCompetitors, competitorData, radiusMiles]);
 
   useEffect(() => {
     if (!mapRef.current || !mapRef.current.loaded()) return;
     updateCompetitors();
   }, [updateCompetitors]);
+
+  // Search volume view — top 20 per state, brand-agnostic
+  const updateSearchVolView = useCallback(() => {
+    searchVolMarkersRef.current.forEach((m) => m.remove());
+    searchVolMarkersRef.current = [];
+    const map = mapRef.current;
+    if (!map || !searchVolView) return;
+
+    // Hide all recommendation/planned score markers — keep only office pins
+    markersRef.current.forEach((m) => {
+      const kind = (m as unknown as Record<string, unknown>)._markerKind;
+      if (kind !== 'office') {
+        m.getElement().style.display = 'none';
+      }
+    });
+
+    // Dedupe cities across brands, keep highest search vol
+    const cityMap: Record<string, { city_key: string; city: string; state: string; lat: number; lng: number; vol: number }> = {};
+    Object.values(recommendationsByBrand).forEach((recs) => {
+      recs.forEach((r) => {
+        const vol = r.search_vol_total || 0;
+        if (!cityMap[r.city_key] || vol > cityMap[r.city_key].vol) {
+          cityMap[r.city_key] = { city_key: r.city_key, city: cityName(r), state: r.state, lat: r.lat, lng: r.lng, vol };
+        }
+      });
+    });
+
+    // Group by state, take top 20
+    const byState: Record<string, typeof cityMap[string][]> = {};
+    Object.values(cityMap).forEach((c) => {
+      if (!byState[c.state]) byState[c.state] = [];
+      byState[c.state].push(c);
+    });
+
+    const maxVol = Math.max(...Object.values(cityMap).map((c) => c.vol), 1);
+
+    Object.entries(byState).forEach(([, cities]) => {
+      cities.sort((a, b) => b.vol - a.vol);
+      const top20 = cities.slice(0, 20);
+
+      top20.forEach((c, idx) => {
+        if (!c.lat || !c.lng || c.vol === 0) return;
+        const intensity = c.vol / maxVol;
+        const hue = intensity > 0.6 ? '#dc2626' : intensity > 0.3 ? '#f59e0b' : '#3b82f6';
+        const fontSize = intensity > 0.6 ? 13 : intensity > 0.3 ? 11 : 10;
+
+        const el = document.createElement('div');
+        el.textContent = String(c.vol);
+        el.style.cssText = `font-size:${fontSize}px;font-weight:700;color:#fff;background:${hue};padding:2px 6px;border-radius:4px;white-space:nowrap;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,0.25);text-align:center;line-height:1.3;opacity:${0.7 + intensity * 0.3}`;
+
+        const popup = new mapboxgl.Popup({ offset: 10, closeButton: false, maxWidth: '200px' });
+        const popupDiv = document.createElement('div');
+        popupDiv.style.cssText = 'font-family:-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;';
+        const titleEl = document.createElement('div');
+        titleEl.style.cssText = 'font-weight:700;font-size:14px';
+        titleEl.textContent = `${c.city}, ${c.state}`;
+        popupDiv.appendChild(titleEl);
+        const volEl = document.createElement('div');
+        volEl.style.cssText = 'font-size:20px;font-weight:800;margin:4px 0';
+        volEl.textContent = String(c.vol);
+        popupDiv.appendChild(volEl);
+        const rankEl = document.createElement('div');
+        rankEl.style.cssText = 'font-size:11px;color:#6b7280';
+        rankEl.textContent = `#${idx + 1} in ${c.state}`;
+        popupDiv.appendChild(rankEl);
+        popup.setDOMContent(popupDiv);
+
+        const marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
+          .setLngLat([c.lng, c.lat])
+          .setPopup(popup)
+          .addTo(map);
+        searchVolMarkersRef.current.push(marker);
+
+      });
+    });
+  }, [searchVolView, recommendationsByBrand]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !map.loaded()) return;
+    updateSearchVolView();
+    // Show all markers again when toggling off
+    if (!searchVolView) {
+      markersRef.current.forEach((m) => m.getElement().style.display = '');
+    }
+  }, [updateSearchVolView, searchVolView]);
 
   // Initialize map
   useEffect(() => {
@@ -503,6 +657,50 @@ export default function RecommendationMap({
       });
       addMarkers();
     });
+
+    map.on('click', (e) => {
+      // Drop pin mode OR Shift+Click
+      const isDropMode = map.getContainer().dataset.dropPin === 'true';
+      const isShiftClick = e.originalEvent?.metaKey || e.originalEvent?.ctrlKey;
+      if (!isDropMode && !isShiftClick) return;
+      // Don't fire if clicking a marker
+      const target = e.originalEvent?.target as HTMLElement | null;
+      if (target && target.closest('.mapboxgl-marker')) return;
+
+      const { lng, lat } = e.lngLat;
+
+      // Visual pin
+      const el = document.createElement('div');
+      el.style.cssText = 'display:flex;flex-direction:column;align-items:center;cursor:pointer;';
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.setAttribute('width', '28');
+      svg.setAttribute('height', '36');
+      svg.setAttribute('viewBox', '0 0 24 32');
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('d', 'M12 0C5.4 0 0 5.4 0 12c0 9 12 20 12 20s12-11 12-20C24 5.4 18.6 0 12 0z');
+      path.setAttribute('fill', '#7c3aed');
+      svg.appendChild(path);
+      const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      circle.setAttribute('cx', '12');
+      circle.setAttribute('cy', '11');
+      circle.setAttribute('r', '5');
+      circle.setAttribute('fill', '#fff');
+      svg.appendChild(circle);
+      el.appendChild(svg);
+      const lbl = document.createElement('div');
+      lbl.textContent = `${lat.toFixed(2)}, ${lng.toFixed(2)}`;
+      lbl.style.cssText = 'font-size:9px;font-weight:700;color:#fff;background:#7c3aed;padding:1px 5px;border-radius:3px;margin-top:-4px;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,0.2)';
+      el.appendChild(lbl);
+
+      const marker = new mapboxgl.Marker({ element: el, anchor: 'bottom' })
+        .setLngLat([lng, lat])
+        .addTo(map);
+      dropPinMarkersRef.current.push(marker);
+
+      // Notify parent
+      if (onDropPin) onDropPin(lat, lng);
+    });
+
     mapRef.current = map;
 
     return () => {
@@ -525,6 +723,51 @@ export default function RecommendationMap({
       setTimeout(() => mapRef.current?.resize(), 350);
     }
   }, [fullscreen]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    map.getContainer().dataset.dropPin = dropPinMode ? 'true' : 'false';
+    map.getCanvas().style.cursor = dropPinMode ? 'crosshair' : '';
+
+    // Preview radius on mousemove
+    if (!map.getSource('drop-preview')) {
+      if (map.loaded()) {
+        map.addSource('drop-preview', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+        map.addLayer({ id: 'drop-preview-fill', type: 'fill', source: 'drop-preview', paint: { 'fill-color': '#7c3aed', 'fill-opacity': 0.08 } });
+        map.addLayer({ id: 'drop-preview-stroke', type: 'line', source: 'drop-preview', paint: { 'line-color': '#7c3aed', 'line-opacity': 0.4, 'line-width': 2, 'line-dasharray': [4, 3] } });
+      }
+    }
+
+    const onMove = (e: mapboxgl.MapMouseEvent) => {
+      const src = map.getSource('drop-preview') as mapboxgl.GeoJSONSource | undefined;
+      if (!src) return;
+      if (!dropPinMode) {
+        src.setData({ type: 'FeatureCollection', features: [] });
+        return;
+      }
+      const { lng, lat } = e.lngLat;
+      src.setData({
+        type: 'FeatureCollection',
+        features: [{
+          type: 'Feature',
+          properties: {},
+          geometry: { type: 'Polygon', coordinates: [makeCircleCoords(lng, lat, radiusMiles)] },
+        }],
+      });
+    };
+
+    if (dropPinMode) {
+      map.on('mousemove', onMove);
+    } else {
+      const src = map.getSource('drop-preview') as mapboxgl.GeoJSONSource | undefined;
+      if (src) src.setData({ type: 'FeatureCollection', features: [] });
+    }
+
+    return () => {
+      map.off('mousemove', onMove);
+    };
+  }, [dropPinMode, radiusMiles]);
 
   return (
     <div
@@ -549,6 +792,17 @@ export default function RecommendationMap({
             />
             Offices
           </label>
+          <button
+            className={`text-xs px-2 py-1 border rounded-md ${
+              searchVolView
+                ? 'border-blue-500 bg-blue-50 text-blue-700'
+                : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-100'
+            }`}
+            onClick={() => setSearchVolView((p) => !p)}
+            title="Simple view: top 20 search volume cities per state"
+          >
+            {searchVolView ? 'Exit Vol View' : 'Search Vol'}
+          </button>
           {competitorData && (
             <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer">
               <input
@@ -584,6 +838,17 @@ export default function RecommendationMap({
               </option>
             ))}
           </select>
+          <button
+            className={`text-xs px-2 py-1 border rounded-md ${
+              dropPinMode
+                ? 'border-purple-500 bg-purple-50 text-purple-700'
+                : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-100'
+            }`}
+            onClick={() => setDropPinMode((p) => !p)}
+            title={dropPinMode ? 'Exit drop pin mode' : 'Drop a pin to add custom location (or Cmd/Ctrl+Click)'}
+          >
+            📍 {dropPinMode ? 'Done' : 'Pin'}
+          </button>
           <button
             className="text-xs px-2 py-1 border border-gray-200 rounded-md bg-white text-gray-700 hover:bg-gray-100"
             onClick={() => setFullscreen((p) => !p)}
@@ -624,6 +889,9 @@ export default function RecommendationMap({
         </span>
         <span className="flex items-center gap-1">
           <span className="inline-block w-2 h-2 rounded-full" style={{ background: '#dc2626' }} /> Competitor
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="inline-block w-3 h-3 rounded-full" style={{ background: '#f59e0b', border: '2px solid #fff' }} /> Top in State
         </span>
       </div>
     </div>
