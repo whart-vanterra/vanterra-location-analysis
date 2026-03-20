@@ -249,11 +249,13 @@ export default function RecommendationMap({
       const recs = (recommendationsByBrand[brand.brand_id] ?? []).slice(0, 10);
       recs.forEach((rec, idx) => {
         if (!rec.lat || !rec.lng) return;
+        const planKey = `${rec.brand_id}-${rec.city_key}`;
+        const inPlan = plannedKeys.has(planKey);
+        // In search vol view, skip unplanned recommendations entirely
+        if (searchVolView && !inPlan) return;
         const priority = priorityFromScore(rec.composite_score);
         const pColor = PRIORITY_COLORS[priority] ?? '#6c757d';
         const opacity = 1 - idx * 0.05;
-        const planKey = `${rec.brand_id}-${rec.city_key}`;
-        const inPlan = plannedKeys.has(planKey);
 
         const wrap = document.createElement('div');
         wrap.style.cssText = `display:flex;flex-direction:column;align-items:center;cursor:pointer;opacity:${opacity};`;
@@ -499,13 +501,7 @@ export default function RecommendationMap({
     const map = mapRef.current;
     if (!map || !searchVolView) return;
 
-    // Hide all recommendation/planned score markers — keep only office pins
-    markersRef.current.forEach((m) => {
-      const kind = (m as unknown as Record<string, unknown>)._markerKind;
-      if (kind !== 'office') {
-        m.getElement().style.display = 'none';
-      }
-    });
+    // Normal markers already filtered by addMarkers when searchVolView is on
 
     // Dedupe cities across brands, keep highest search vol
     const cityMap: Record<string, { city_key: string; city: string; state: string; lat: number; lng: number; vol: number }> = {};
@@ -572,10 +568,7 @@ export default function RecommendationMap({
     const map = mapRef.current;
     if (!map || !map.loaded()) return;
     updateSearchVolView();
-    // Show all markers again when toggling off
-    if (!searchVolView) {
-      markersRef.current.forEach((m) => m.getElement().style.display = '');
-    }
+    // Markers are rebuilt by addMarkers when searchVolView toggles
   }, [updateSearchVolView, searchVolView]);
 
   // Initialize map
