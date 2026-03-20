@@ -5,7 +5,31 @@ import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import type { Brand, Recommendation } from '@/lib/types';
 
+interface CompetitorCity {
+  city: string;
+  state: string;
+  lat: number;
+  lng: number;
+  competitor_count: number;
+  competitors: {
+    place_id: string;
+    name: string;
+    lat: number;
+    lng: number;
+    rating: number | null;
+    user_ratings_total: number;
+    address: string;
+    business_status: string;
+  }[];
+}
+
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? '';
+
+function cityName(rec: { city: string; city_key: string }): string {
+  if (rec.city) return rec.city;
+  const parts = rec.city_key.split('|');
+  return parts[0].replace(/\b\w/g, (c) => c.toUpperCase());
+}
 
 const BRAND_COLORS = [
   '#e6194b', '#1a8c3b', '#4363d8', '#e05500', '#7b2d8e',
@@ -45,6 +69,7 @@ interface Props {
   recommendationsByBrand: Record<string, Recommendation[]>;
   activeOfficesByBrand: Map<string, Set<string>>;
   plannedKeys: Set<string>;
+  competitorData?: Record<string, CompetitorCity>;
   onOfficeToggle: (brandId: string, cityKey: string) => void;
   onAddToPlan: (rec: Recommendation) => void;
   onRemoveAdd: (brandId: string, cityKey: string) => void;
@@ -55,6 +80,7 @@ export default function RecommendationMap({
   recommendationsByBrand,
   activeOfficesByBrand,
   plannedKeys,
+  competitorData,
   onOfficeToggle,
   onAddToPlan,
   onRemoveAdd,
@@ -68,6 +94,9 @@ export default function RecommendationMap({
   const [fullscreen, setFullscreen] = useState(false);
   const [filterBrand, setFilterBrand] = useState('all');
   const [showOffices, setShowOffices] = useState(true);
+  const [radiusMiles, setRadiusMiles] = useState(20);
+  const [showCompetitors, setShowCompetitors] = useState(false);
+  const competitorMarkersRef = useRef<mapboxgl.Marker[]>([]);
 
   const brandColorMap = useRef(
     Object.fromEntries(brands.map((b, i) => [b.brand_id, BRAND_COLORS[i % BRAND_COLORS.length]]))
@@ -151,9 +180,30 @@ export default function RecommendationMap({
           popupDiv.appendChild(titleEl);
 
           const subEl = document.createElement('div');
-          subEl.style.cssText = 'font-size:11px;color:#6b7280;margin-bottom:8px';
+          subEl.style.cssText = 'font-size:11px;color:#6b7280;margin-bottom:6px';
           subEl.textContent = `${brand.brand_id} \u2014 ${brand.display_name} \u00b7 Existing Office`;
           popupDiv.appendChild(subEl);
+
+          const officeRows: [string, string][] = [];
+          if (loc.population) officeRows.push(['Population', loc.population.toLocaleString()]);
+          if (loc.search_vol_total) officeRows.push(['Search Vol', `${loc.search_vol_total}/mo`]);
+          if (loc.owner_occupied_pct != null) officeRows.push(['Owner-Occ', `${Math.round(loc.owner_occupied_pct * 100)}%`]);
+          if (loc.median_household_income) officeRows.push(['Med Income', `$${Math.round(loc.median_household_income / 1000)}K`]);
+          if (loc.median_year_built) officeRows.push(['Med Year Built', String(loc.median_year_built)]);
+          officeRows.forEach(([label, value]) => {
+            const row = document.createElement('div');
+            row.style.cssText = 'display:flex;justify-content:space-between;gap:12px;padding:2px 0';
+            const lblEl = document.createElement('span');
+            lblEl.style.color = '#6b7280';
+            lblEl.textContent = label;
+            const valEl = document.createElement('span');
+            valEl.style.fontWeight = '600';
+            valEl.style.textAlign = 'right';
+            valEl.textContent = value;
+            row.appendChild(lblEl);
+            row.appendChild(valEl);
+            popupDiv.appendChild(row);
+          });
 
           const btn = document.createElement('button');
           btn.style.cssText = `display:block;width:100%;padding:6px 0;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;text-align:center;transition:all 0.15s;border:1px solid ${isActive ? '#2d9e5f' : '#c0392b'};background:${isActive ? '#e8f7ef' : '#fff'};color:${isActive ? '#2d9e5f' : '#c0392b'}`;
@@ -179,7 +229,7 @@ export default function RecommendationMap({
           radiusFeatures.push({
             type: 'Feature',
             properties: { color: pinColor, kind: 'existing', id: `${brand.brand_id}-${loc.city_key}` },
-            geometry: { type: 'Polygon', coordinates: [makeCircleCoords(loc.lng, loc.lat, 20)] },
+            geometry: { type: 'Polygon', coordinates: [makeCircleCoords(loc.lng, loc.lat, radiusMiles)] },
           });
         });
       }
@@ -199,10 +249,10 @@ export default function RecommendationMap({
 
         const scoreLbl = document.createElement('div');
         if (inPlan) {
-          scoreLbl.textContent = `\u2713 ${rec.city} ${Math.round(rec.composite_score)}`;
+          scoreLbl.textContent = `\u2713 ${cityName(rec)} ${Math.round(rec.composite_score)}`;
           scoreLbl.style.cssText = 'font-size:10px;font-weight:700;color:#fff;background:#2d9e5f;padding:1px 5px;border-radius:3px;white-space:nowrap;line-height:14px;box-shadow:0 1px 4px rgba(45,158,95,0.4);margin-bottom:2px';
         } else {
-          scoreLbl.textContent = `${rec.city} ${Math.round(rec.composite_score)}`;
+          scoreLbl.textContent = `${cityName(rec)} ${Math.round(rec.composite_score)}`;
           scoreLbl.style.cssText = 'font-size:10px;font-weight:700;color:#333;background:rgba(255,255,255,0.92);padding:0 3px;border-radius:3px;white-space:nowrap;line-height:14px;box-shadow:0 1px 2px rgba(0,0,0,0.15);margin-bottom:2px';
         }
         wrap.appendChild(scoreLbl);
@@ -217,7 +267,7 @@ export default function RecommendationMap({
 
         const titleEl = document.createElement('div');
         titleEl.style.cssText = 'font-weight:700;font-size:14px;margin-bottom:2px';
-        titleEl.textContent = `${rec.city}, ${rec.state}`;
+        titleEl.textContent = `${cityName(rec)}, ${rec.state}`;
         popupDiv.appendChild(titleEl);
 
         const subEl = document.createElement('div');
@@ -282,10 +332,12 @@ export default function RecommendationMap({
         bounds.extend([rec.lng, rec.lat]);
         hasPoints = true;
 
+        const radiusColor = inPlan ? '#2d9e5f' : pColor;
+        const radiusKind = inPlan ? 'planned' : 'recommendation';
         radiusFeatures.push({
           type: 'Feature',
-          properties: { color: pColor, kind: 'recommendation', id: `${rec.brand_id}-${rec.city_key}` },
-          geometry: { type: 'Polygon', coordinates: [makeCircleCoords(rec.lng, rec.lat, 20)] },
+          properties: { color: radiusColor, kind: radiusKind, id: `${rec.brand_id}-${rec.city_key}` },
+          geometry: { type: 'Polygon', coordinates: [makeCircleCoords(rec.lng, rec.lat, radiusMiles)] },
         });
       });
     });
@@ -314,7 +366,63 @@ export default function RecommendationMap({
       map.off('zoom', updateRadius);
       map.on('zoom', updateRadius);
     }
-  }, [brands, recommendationsByBrand, activeOfficesByBrand, plannedKeys, filterBrand, showOffices, brandColorMap, clearMarkers, highlightRadius, onOfficeToggle, onAddToPlan, onRemoveAdd]);
+  }, [brands, recommendationsByBrand, activeOfficesByBrand, plannedKeys, filterBrand, showOffices, radiusMiles, brandColorMap, clearMarkers, highlightRadius, onOfficeToggle, onAddToPlan, onRemoveAdd]);
+
+  // Competitor markers
+  const updateCompetitors = useCallback(() => {
+    competitorMarkersRef.current.forEach((m) => m.remove());
+    competitorMarkersRef.current = [];
+    const map = mapRef.current;
+    if (!map || !showCompetitors || !competitorData) return;
+
+    Object.values(competitorData).forEach((cityData) => {
+      cityData.competitors.forEach((comp) => {
+        if (!comp.lat || !comp.lng || comp.business_status !== 'OPERATIONAL') return;
+
+        const el = document.createElement('div');
+        el.style.cssText = 'width:8px;height:8px;border-radius:50%;background:#dc2626;border:1.5px solid #fff;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,0.3);';
+
+        const popupDiv = document.createElement('div');
+        popupDiv.style.cssText = 'font-family:-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;line-height:1.5;max-width:240px';
+
+        const titleEl = document.createElement('div');
+        titleEl.style.cssText = 'font-weight:700;font-size:13px;margin-bottom:2px;color:#dc2626';
+        titleEl.textContent = comp.name;
+        popupDiv.appendChild(titleEl);
+
+        const addrEl = document.createElement('div');
+        addrEl.style.cssText = 'font-size:11px;color:#6b7280;margin-bottom:4px';
+        addrEl.textContent = comp.address;
+        popupDiv.appendChild(addrEl);
+
+        if (comp.rating != null) {
+          const ratingEl = document.createElement('div');
+          ratingEl.style.cssText = 'display:flex;justify-content:space-between;padding:2px 0';
+          const rLbl = document.createElement('span');
+          rLbl.style.color = '#6b7280';
+          rLbl.textContent = 'Rating';
+          const rVal = document.createElement('span');
+          rVal.style.fontWeight = '600';
+          rVal.textContent = `${comp.rating} \u2605 (${comp.user_ratings_total})`;
+          ratingEl.appendChild(rLbl);
+          ratingEl.appendChild(rVal);
+          popupDiv.appendChild(ratingEl);
+        }
+
+        const popup = new mapboxgl.Popup({ offset: 8, closeButton: false, maxWidth: '260px' }).setDOMContent(popupDiv);
+        const marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
+          .setLngLat([comp.lng, comp.lat])
+          .setPopup(popup)
+          .addTo(map);
+        competitorMarkersRef.current.push(marker);
+      });
+    });
+  }, [showCompetitors, competitorData]);
+
+  useEffect(() => {
+    if (!mapRef.current || !mapRef.current.loaded()) return;
+    updateCompetitors();
+  }, [updateCompetitors]);
 
   // Initialize map
   useEffect(() => {
@@ -360,6 +468,21 @@ export default function RecommendationMap({
         source: 'radius-circles',
         filter: ['==', ['get', 'kind'], 'recommendation'],
         paint: { 'line-color': ['get', 'color'], 'line-opacity': 0.2, 'line-width': 1, 'line-dasharray': [4, 3] },
+      });
+      // Planned radii — solid green, locked in
+      map.addLayer({
+        id: 'radius-fill-planned',
+        type: 'fill',
+        source: 'radius-circles',
+        filter: ['==', ['get', 'kind'], 'planned'],
+        paint: { 'fill-color': '#2d9e5f', 'fill-opacity': 0.12 },
+      });
+      map.addLayer({
+        id: 'radius-stroke-planned',
+        type: 'line',
+        source: 'radius-circles',
+        filter: ['==', ['get', 'kind'], 'planned'],
+        paint: { 'line-color': '#2d9e5f', 'line-opacity': 0.5, 'line-width': 2.5 },
       });
       // Highlight layer for hover
       map.addSource('radius-highlight', {
@@ -426,6 +549,29 @@ export default function RecommendationMap({
             />
             Offices
           </label>
+          {competitorData && (
+            <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showCompetitors}
+                onChange={(e) => setShowCompetitors(e.target.checked)}
+                className="rounded"
+              />
+              Competitors
+            </label>
+          )}
+          <label className="flex items-center gap-1.5 text-xs text-gray-500">
+            <span>{radiusMiles}mi</span>
+            <input
+              type="range"
+              min={5}
+              max={50}
+              step={5}
+              value={radiusMiles}
+              onChange={(e) => setRadiusMiles(Number(e.target.value))}
+              className="w-16 h-1 accent-[#4C9784]"
+            />
+          </label>
           <select
             value={filterBrand}
             onChange={(e) => setFilterBrand(e.target.value)}
@@ -475,6 +621,9 @@ export default function RecommendationMap({
         </span>
         <span className="flex items-center gap-1">
           <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ background: '#6c757d' }} /> COULD
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="inline-block w-2 h-2 rounded-full" style={{ background: '#dc2626' }} /> Competitor
         </span>
       </div>
     </div>

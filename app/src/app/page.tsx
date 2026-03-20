@@ -18,10 +18,12 @@ import RecommendationMap from '@/components/RecommendationMap';
 import recommendationsData from '@/data/recommendations.json';
 import brandsData from '@/data/brands.json';
 import configData from '@/data/config.json';
+import competitorsRaw from '@/data/competitors.json';
 
 const brands = brandsData as unknown as Brand[];
 const defaultConfig = configData as unknown as ScoringConfig;
 const recommendationsByBrand = recommendationsData as unknown as Record<string, Recommendation[]>;
+const competitorData = competitorsRaw as unknown as Record<string, { city: string; state: string; lat: number; lng: number; competitor_count: number; competitors: { place_id: string; name: string; lat: number; lng: number; rating: number | null; user_ratings_total: number; address: string; business_status: string }[] }>;
 
 const DEFAULT_CLOSED: ReadonlySet<string> = new Set([
   'SB-golden valley|mn',
@@ -318,6 +320,7 @@ export default function Home() {
           recommendationsByBrand={recommendationsByBrand}
           activeOfficesByBrand={activeOfficesByBrand}
           plannedKeys={plannedKeys}
+          competitorData={competitorData}
           onOfficeToggle={handleOfficeToggle}
           onAddToPlan={handleAddToPlan}
           onRemoveAdd={handleRemoveAdd}
