@@ -106,6 +106,7 @@ export default function RecommendationMap({
   const [showCompetitors, setShowCompetitors] = useState(false);
   const [dropPinMode, setDropPinMode] = useState(false);
   const [searchVolView, setSearchVolView] = useState(false);
+  const [incomeWeighted, setIncomeWeighted] = useState(false);
   const competitorMarkersRef = useRef<mapboxgl.Marker[]>([]);
   const dropPinMarkersRef = useRef<mapboxgl.Marker[]>([]);
   const searchVolMarkersRef = useRef<mapboxgl.Marker[]>([]);
@@ -520,41 +521,49 @@ export default function RecommendationMap({
 
     // Normal markers already filtered by addMarkers when searchVolView is on
 
-    // Dedupe cities across brands, keep highest search vol
-    const cityMap: Record<string, { city_key: string; city: string; state: string; lat: number; lng: number; vol: number }> = {};
+    // Dedupe cities across brands, keep highest search vol + income
+    const cityMap: Record<string, { city_key: string; city: string; state: string; lat: number; lng: number; vol: number; income: number; weighted: number }> = {};
     Object.values(recommendationsByBrand).forEach((recs) => {
       recs.forEach((r) => {
         const vol = r.search_vol_total || 0;
+        const income = r.median_household_income || 0;
+        // Continuous income factor: log curve centered at $75K = 1.0x
+        // $40K ≈ 0.6x, $75K = 1.0x, $120K ≈ 1.3x, $200K ≈ 1.5x
+        const incomeFactor = income > 0 ? Math.log(income / 75000) / Math.log(2) * 0.5 + 1 : 0.5;
+        const weighted = Math.round(vol * incomeFactor);
         if (!cityMap[r.city_key] || vol > cityMap[r.city_key].vol) {
-          cityMap[r.city_key] = { city_key: r.city_key, city: cityName(r), state: r.state, lat: r.lat, lng: r.lng, vol };
+          cityMap[r.city_key] = { city_key: r.city_key, city: cityName(r), state: r.state, lat: r.lat, lng: r.lng, vol, income, weighted };
         }
       });
     });
 
     // Group by state, take top 20
+    const useWeighted = incomeWeighted;
     const byState: Record<string, typeof cityMap[string][]> = {};
     Object.values(cityMap).forEach((c) => {
       if (!byState[c.state]) byState[c.state] = [];
       byState[c.state].push(c);
     });
 
-    const maxVol = Math.max(...Object.values(cityMap).map((c) => c.vol), 1);
+    const sortKey = useWeighted ? 'weighted' : 'vol';
+    const maxVal = Math.max(...Object.values(cityMap).map((c) => c[sortKey]), 1);
 
     Object.entries(byState).forEach(([, cities]) => {
-      cities.sort((a, b) => b.vol - a.vol);
+      cities.sort((a, b) => b[sortKey] - a[sortKey]);
       const top20 = cities.slice(0, 20);
 
       top20.forEach((c, idx) => {
         if (!c.lat || !c.lng || c.vol === 0) return;
-        const intensity = c.vol / maxVol;
+        const displayVal = c[sortKey];
+        const intensity = displayVal / maxVal;
         const hue = intensity > 0.6 ? '#dc2626' : intensity > 0.3 ? '#f59e0b' : '#3b82f6';
         const fontSize = intensity > 0.6 ? 13 : intensity > 0.3 ? 11 : 10;
 
         const el = document.createElement('div');
-        el.textContent = String(c.vol);
+        el.textContent = String(displayVal);
         el.style.cssText = `font-size:${fontSize}px;font-weight:700;color:#fff;background:${hue};padding:2px 6px;border-radius:4px;white-space:nowrap;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,0.25);text-align:center;line-height:1.3;opacity:${0.7 + intensity * 0.3}`;
 
-        const popup = new mapboxgl.Popup({ offset: 10, closeButton: false, maxWidth: '200px' });
+        const popup = new mapboxgl.Popup({ offset: 10, closeButton: false, maxWidth: '220px' });
         const popupDiv = document.createElement('div');
         popupDiv.style.cssText = 'font-family:-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;';
         const titleEl = document.createElement('div');
@@ -563,8 +572,20 @@ export default function RecommendationMap({
         popupDiv.appendChild(titleEl);
         const volEl = document.createElement('div');
         volEl.style.cssText = 'font-size:20px;font-weight:800;margin:4px 0';
-        volEl.textContent = String(c.vol);
+        volEl.textContent = `${c.vol}`;
         popupDiv.appendChild(volEl);
+        if (c.income > 0) {
+          const incEl = document.createElement('div');
+          incEl.style.cssText = 'font-size:12px;color:#6b7280;margin-bottom:2px';
+          incEl.textContent = `Income: $${Math.round(c.income / 1000)}K`;
+          popupDiv.appendChild(incEl);
+        }
+        if (useWeighted) {
+          const wEl = document.createElement('div');
+          wEl.style.cssText = 'font-size:12px;font-weight:700;color:#7c3aed;margin-bottom:2px';
+          wEl.textContent = `Weighted: ${c.weighted}`;
+          popupDiv.appendChild(wEl);
+        }
         const rankEl = document.createElement('div');
         rankEl.style.cssText = 'font-size:11px;color:#6b7280';
         rankEl.textContent = `#${idx + 1} in ${c.state}`;
@@ -579,7 +600,7 @@ export default function RecommendationMap({
 
       });
     });
-  }, [searchVolView, recommendationsByBrand]);
+  }, [searchVolView, incomeWeighted, recommendationsByBrand]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -922,6 +943,19 @@ export default function RecommendationMap({
           >
             {searchVolView ? 'Exit Vol View' : 'Search Vol'}
           </button>
+          {searchVolView && (
+            <button
+              className={`text-xs px-2 py-1 border rounded-md ${
+                incomeWeighted
+                  ? 'border-purple-500 bg-purple-50 text-purple-700'
+                  : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-100'
+              }`}
+              onClick={() => setIncomeWeighted((p) => !p)}
+              title="Weight search volume by household income (vol × income factor)"
+            >
+              {incomeWeighted ? '$ Weighted' : '$ Income'}
+            </button>
+          )}
           {competitorData && (
             <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer">
               <input
@@ -1013,6 +1047,14 @@ export default function RecommendationMap({
           <span className="inline-block w-3 h-3 rounded-full" style={{ background: '#f59e0b', border: '2px solid #fff' }} /> Top in State
         </span>
       </div>
+      {searchVolView && incomeWeighted && (
+        <div className="px-5 py-2 border-t border-gray-200 text-xs text-gray-500 leading-relaxed">
+          <span className="font-semibold text-purple-700">Income Weighting:</span>{' '}
+          vol &times; log&#8322;(income / $75K) &times; 0.5 + 1 &mdash;{' '}
+          $33K &rarr; 0.4x, $50K &rarr; 0.7x, $75K &rarr; 1.0x, $100K &rarr; 1.2x, $120K &rarr; 1.3x, $200K &rarr; 1.5x.{' '}
+          Continuous curve, no hard cutoffs. Higher income = more likely to afford $5K&ndash;$30K foundation repair.
+        </div>
+      )}
     </div>
   );
 }
