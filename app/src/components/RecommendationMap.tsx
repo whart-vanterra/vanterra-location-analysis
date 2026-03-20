@@ -96,7 +96,13 @@ export default function RecommendationMap({
   const [fullscreen, setFullscreen] = useState(false);
   const [filterBrand, setFilterBrand] = useState('all');
   const [showOffices, setShowOffices] = useState(true);
-  const [radiusMiles, setRadiusMiles] = useState(20);
+  const [radiusMiles, setRadiusMiles] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('mapRadiusMiles');
+      if (saved) return Number(saved);
+    }
+    return 20;
+  });
   const [showCompetitors, setShowCompetitors] = useState(false);
   const [dropPinMode, setDropPinMode] = useState(false);
   const [searchVolView, setSearchVolView] = useState(false);
@@ -104,6 +110,10 @@ export default function RecommendationMap({
   const dropPinMarkersRef = useRef<mapboxgl.Marker[]>([]);
   const searchVolMarkersRef = useRef<mapboxgl.Marker[]>([]);
   const selectedCompRadiiRef = useRef<GeoJSON.Feature[]>([]);
+
+  useEffect(() => {
+    try { localStorage.setItem('mapRadiusMiles', String(radiusMiles)); } catch { /* */ }
+  }, [radiusMiles]);
 
   const brandColorMap = useRef(
     Object.fromEntries(brands.map((b, i) => [b.brand_id, BRAND_COLORS[i % BRAND_COLORS.length]]))
@@ -692,10 +702,119 @@ export default function RecommendationMap({
       lbl.style.cssText = 'font-size:9px;font-weight:700;color:#fff;background:#7c3aed;padding:1px 5px;border-radius:3px;margin-top:-4px;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,0.2)';
       el.appendChild(lbl);
 
+      const popupDiv = document.createElement('div');
+      popupDiv.style.cssText = 'font-family:-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;line-height:1.5;min-width:180px';
+
+      const titleEl = document.createElement('div');
+      titleEl.style.cssText = 'font-weight:700;font-size:13px;color:#7c3aed;margin-bottom:6px';
+      titleEl.textContent = 'Dropped Pin';
+      popupDiv.appendChild(titleEl);
+
+      const coordEl = document.createElement('div');
+      coordEl.style.cssText = 'font-size:12px;color:#333;font-family:monospace;margin-bottom:8px';
+      coordEl.textContent = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+      popupDiv.appendChild(coordEl);
+
+      const btnRow = document.createElement('div');
+      btnRow.style.cssText = 'display:flex;flex-direction:column;gap:4px';
+
+      const copyBtn = document.createElement('button');
+      copyBtn.style.cssText = 'display:block;width:100%;padding:5px 0;border-radius:5px;font-size:11px;font-weight:600;cursor:pointer;text-align:center;border:1px solid #7c3aed;background:#f5f3ff;color:#7c3aed';
+      copyBtn.textContent = 'Copy Coordinates';
+      copyBtn.addEventListener('click', () => {
+        navigator.clipboard.writeText(`${lat.toFixed(6)}, ${lng.toFixed(6)}`);
+        copyBtn.textContent = 'Copied!';
+        setTimeout(() => { copyBtn.textContent = 'Copy Coordinates'; }, 1500);
+      });
+      btnRow.appendChild(copyBtn);
+
+      const lookupBtn = document.createElement('button');
+      lookupBtn.style.cssText = 'display:block;width:100%;padding:5px 0;border-radius:5px;font-size:11px;font-weight:600;cursor:pointer;text-align:center;border:1px solid #4C9784;background:#e8f4f1;color:#3a7868';
+      lookupBtn.textContent = 'Lookup City';
+      lookupBtn.addEventListener('click', () => {
+        lookupBtn.textContent = 'Looking up...';
+        fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?types=place&access_token=${mapboxgl.accessToken}`)
+          .then((r) => r.json())
+          .then((data) => {
+            const feature = data.features?.[0];
+            if (feature) {
+              const city = feature.text || '';
+              const state = (feature.context || []).find((c: { id: string }) => c.id.startsWith('region'))?.short_code?.replace('US-', '') || '';
+              titleEl.textContent = `${city}, ${state}`;
+              lbl.textContent = `${city}, ${state}`;
+              lookupBtn.textContent = `${city}, ${state}`;
+              lookupBtn.style.borderColor = '#2d9e5f';
+              lookupBtn.style.color = '#2d9e5f';
+              lookupBtn.style.background = '#e8f7ef';
+            } else {
+              lookupBtn.textContent = 'No city found';
+            }
+          })
+          .catch(() => { lookupBtn.textContent = 'Lookup failed'; });
+      });
+      btnRow.appendChild(lookupBtn);
+
+      const removeBtn = document.createElement('button');
+      removeBtn.style.cssText = 'display:block;width:100%;padding:5px 0;border-radius:5px;font-size:11px;font-weight:600;cursor:pointer;text-align:center;border:1px solid #dc2626;background:#fef2f2;color:#dc2626';
+      removeBtn.textContent = 'Remove Pin';
+      removeBtn.addEventListener('click', () => {
+        // Remove radius
+        const rf = (marker as unknown as Record<string, unknown>)._radiusFeature as GeoJSON.Feature | undefined;
+        if (rf) {
+          radiusFeaturesRef.current = radiusFeaturesRef.current.filter((f) => f !== rf);
+          const mainSrc2 = map.getSource('radius-circles') as mapboxgl.GeoJSONSource | undefined;
+          if (mainSrc2) {
+            const zoom = map.getZoom();
+            mainSrc2.setData({
+              type: 'FeatureCollection',
+              features: [
+                ...(zoom >= 6 ? radiusFeaturesRef.current : []),
+                ...selectedCompRadiiRef.current,
+              ],
+            });
+          }
+        }
+        marker.remove();
+        dropPinMarkersRef.current = dropPinMarkersRef.current.filter((m) => m !== marker);
+        const cityKey = `custom-${lat.toFixed(4)}-${lng.toFixed(4)}`;
+        if (onRemoveAdd) {
+          // Find which brand it was added under
+          const selectedId = filterBrand !== 'all' ? filterBrand : brands[0]?.brand_id ?? '';
+          onRemoveAdd(selectedId, cityKey);
+        }
+      });
+      btnRow.appendChild(removeBtn);
+
+      popupDiv.appendChild(btnRow);
+
+      const popup = new mapboxgl.Popup({ offset: 28, closeButton: true, maxWidth: '220px' }).setDOMContent(popupDiv);
       const marker = new mapboxgl.Marker({ element: el, anchor: 'bottom' })
         .setLngLat([lng, lat])
+        .setPopup(popup)
         .addTo(map);
       dropPinMarkersRef.current.push(marker);
+
+      // Add radius to main source
+      const pinRadiusFeature: GeoJSON.Feature = {
+        type: 'Feature',
+        properties: { color: '#7c3aed', kind: 'planned', id: `pin-${lat.toFixed(4)}-${lng.toFixed(4)}` },
+        geometry: { type: 'Polygon', coordinates: [makeCircleCoords(lng, lat, radiusMiles)] },
+      };
+      radiusFeaturesRef.current.push(pinRadiusFeature);
+      const mainSrc = map.getSource('radius-circles') as mapboxgl.GeoJSONSource | undefined;
+      if (mainSrc) {
+        const zoom = map.getZoom();
+        mainSrc.setData({
+          type: 'FeatureCollection',
+          features: [
+            ...(zoom >= 6 ? radiusFeaturesRef.current : []),
+            ...selectedCompRadiiRef.current,
+          ],
+        });
+      }
+
+      // Store ref on marker for cleanup
+      (marker as unknown as Record<string, unknown>)._radiusFeature = pinRadiusFeature;
 
       // Notify parent
       if (onDropPin) onDropPin(lat, lng);
